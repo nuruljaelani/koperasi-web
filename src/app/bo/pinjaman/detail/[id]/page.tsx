@@ -10,7 +10,7 @@ import { useJenisPinjamanData } from '@/hooks/useJenisPinjamanData';
 
 export default function DetailPinjamanPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
-  const { getData, isLoaded: pinjamanLoaded } = usePinjamanData();
+  const { dataList, isLoaded: pinjamanLoaded } = usePinjamanData();
   const { anggotaList, isLoaded: anggotaLoaded } = useAnggotaData();
   const { dataList: jenisList, isLoaded: jenisLoaded } = useJenisPinjamanData();
 
@@ -19,14 +19,14 @@ export default function DetailPinjamanPage({ params }: { params: Promise<{ id: s
 
   useEffect(() => {
     if (pinjamanLoaded && anggotaLoaded && jenisLoaded) {
-      const existing = getData(id);
+      const existing = dataList.find(p => p.id === id);
       if (existing) {
         setData(existing);
       } else {
         router.push('/admin/pinjaman');
       }
     }
-  }, [pinjamanLoaded, anggotaLoaded, jenisLoaded, id, getData, router]);
+  }, [pinjamanLoaded, anggotaLoaded, jenisLoaded, id, dataList, router]);
 
   if (!pinjamanLoaded || !anggotaLoaded || !jenisLoaded || !data) return null;
 
@@ -38,10 +38,11 @@ export default function DetailPinjamanPage({ params }: { params: Promise<{ id: s
   };
 
   const statusColors: Record<string, string> = {
-    'Menunggu': 'bg-amber-50 text-amber-600 border-amber-200',
+    'Draft': 'bg-slate-50 text-slate-500 border-slate-200',
+    'Review': 'bg-amber-50 text-amber-600 border-amber-200',
     'Disetujui': 'bg-emerald-50 text-emerald-600 border-emerald-200',
     'Ditolak': 'bg-rose-50 text-rose-600 border-rose-200',
-    'Berjalan': 'bg-blue-50 text-blue-600 border-blue-200',
+    'Cair': 'bg-blue-50 text-blue-600 border-blue-200',
     'Lunas': 'bg-slate-100 text-slate-600 border-slate-200',
   };
 

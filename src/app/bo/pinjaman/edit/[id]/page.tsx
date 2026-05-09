@@ -9,19 +9,19 @@ import { useAnggotaData } from '@/hooks/useAnggotaData';
 
 export default function EditPinjamanPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
-  const { getData, updateData, isLoaded: pinjamanLoaded } = usePinjamanData();
+  const { dataList, updateData, isLoaded: pinjamanLoaded } = usePinjamanData();
   const { anggotaList, isLoaded: anggotaLoaded } = useAnggotaData();
 
   const [data, setData] = useState<Pinjaman | null>(null);
 
   // Form states specifically for Admin
-  const [status, setStatus] = useState<PinjamanStatus>('Menunggu');
+  const [status, setStatus] = useState<PinjamanStatus>('Draft');
   const [catatanAdmin, setCatatanAdmin] = useState('');
   const id = React.use(params).id;
 
   useEffect(() => {
     if (pinjamanLoaded && anggotaLoaded) {
-      const existing = getData(id);
+      const existing = dataList.find(p => p.id === id);
       if (existing) {
         setData(existing);
         setStatus(existing.status);
@@ -30,7 +30,7 @@ export default function EditPinjamanPage({ params }: { params: Promise<{ id: str
         router.push('/admin/pinjaman');
       }
     }
-  }, [pinjamanLoaded, anggotaLoaded, id, getData, router]);
+  }, [pinjamanLoaded, anggotaLoaded, id, dataList, router]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,10 +88,11 @@ export default function EditPinjamanPage({ params }: { params: Promise<{ id: str
             onChange={(e) => setStatus(e.target.value as PinjamanStatus)}
             className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-slate-800 font-bold focus:outline-none focus:ring-4 focus:ring-emerald-50 focus:border-emerald-300 transition-all appearance-none cursor-pointer"
           >
-            <option value="Menunggu">⏳ Menunggu Persetujuan</option>
+            <option value="Draft">📝 Draft</option>
+            <option value="Review">⏳ Menunggu Persetujuan</option>
             <option value="Disetujui">✅ Disetujui</option>
             <option value="Ditolak">❌ Ditolak</option>
-            <option value="Berjalan">🚀 Berjalan</option>
+            <option value="Cair">🚀 Berjalan</option>
             <option value="Lunas">🎉 Lunas</option>
           </select>
         </div>

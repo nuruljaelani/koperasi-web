@@ -65,7 +65,7 @@ export default function PinjamanPage() {
   const [tenor, setTenor] = useState(0);
   const [tujuan, setTujuan] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
-  const [uploadedDocs, setUploadedDocs] = useState<{ jenis: string, file: File | null }>([
+  const [uploadedDocs, setUploadedDocs] = useState<{ jenis: string, file: File | null }[]>([
     { jenis: 'KTP', file: null },
     { jenis: 'KK', file: null },
     { jenis: 'Dokumen Agunan (BPKB dll)', file: null },

@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAnggotaData } from '@/hooks/useAnggotaData';
 import { useSimpananData } from '@/hooks/useSimpananData';
-import { usePinjamanData } from '@/hooks/usePinjamanData';
+import { usePinjamanData, PinjamanStatus } from '@/hooks/usePinjamanData';
 import { useJenisPinjamanData } from '@/hooks/useJenisPinjamanData';
 import {
   PiggyBank,
@@ -35,16 +35,15 @@ const formatDate = (dateStr: string) =>
     year: 'numeric',
   });
 
-type PinjamanStatus = 'Menunggu' | 'Disetujui' | 'Ditolak' | 'Berjalan' | 'Lunas';
-
 const STATUS_CONFIG: Record<
   PinjamanStatus,
   { label: string; color: string; icon: React.ElementType }
 > = {
-  Menunggu: { label: 'Menunggu', color: 'bg-amber-50 text-amber-600 border-amber-100', icon: Clock },
+  Draft: { label: 'Draft', color: 'bg-slate-50 text-slate-500 border-slate-100', icon: Clock },
+  Review: { label: 'Menunggu', color: 'bg-amber-50 text-amber-600 border-amber-100', icon: Clock },
   Disetujui: { label: 'Disetujui', color: 'bg-blue-50 text-blue-600 border-blue-100', icon: CheckCircle2 },
   Ditolak: { label: 'Ditolak', color: 'bg-rose-50 text-rose-600 border-rose-100', icon: XCircle },
-  Berjalan: { label: 'Berjalan', color: 'bg-emerald-50 text-emerald-600 border-emerald-100', icon: TrendingUp },
+  Cair: { label: 'Berjalan', color: 'bg-emerald-50 text-emerald-600 border-emerald-100', icon: TrendingUp },
   Lunas: { label: 'Lunas', color: 'bg-slate-100 text-slate-500 border-slate-200', icon: BadgeCheck },
 };
 
@@ -79,7 +78,7 @@ export default function MemberDashboardPage() {
   );
 
   const activePinjaman = useMemo(
-    () => myPinjaman.find((p) => p.status === 'Berjalan'),
+    () => myPinjaman.find((p) => p.status === 'Cair'),
     [myPinjaman]
   );
 
@@ -332,7 +331,7 @@ export default function MemberDashboardPage() {
                     new Date(a.tanggalPengajuan).getTime()
                 )
                 .map((p) => {
-                  const cfg = STATUS_CONFIG[p.status] ?? STATUS_CONFIG['Menunggu'];
+                  const cfg = STATUS_CONFIG[p.status] ?? STATUS_CONFIG['Review'];
                   const StatusIcon = cfg.icon;
                   const jenis = jenisList.find((j) => j.id === p.jenisPinjamanId);
                   return (

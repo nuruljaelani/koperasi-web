@@ -103,10 +103,11 @@ export default function PinjamanPage() {
       accessor: (row: Pinjaman) => {
         let colors = '';
         switch(row.status) {
-          case 'Menunggu': colors = 'bg-amber-50 text-amber-600'; break;
-          case 'Disetujui': colors = 'bg-emerald-50 text-emerald-600'; break;
+          case 'Draft': colors = 'bg-slate-100 text-slate-500'; break;
+          case 'Review': colors = 'bg-amber-50 text-amber-600'; break;
+          case 'Disetujui': colors = 'bg-blue-50 text-blue-600'; break;
           case 'Ditolak': colors = 'bg-rose-50 text-rose-600'; break;
-          case 'Berjalan': colors = 'bg-blue-50 text-blue-600'; break;
+          case 'Cair': colors = 'bg-emerald-50 text-emerald-600'; break;
           case 'Lunas': colors = 'bg-slate-100 text-slate-600'; break;
           default: colors = 'bg-slate-50 text-slate-600';
         }
@@ -170,10 +171,11 @@ export default function PinjamanPage() {
             className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3.5 text-slate-700 font-medium text-sm focus:outline-none focus:ring-4 focus:ring-emerald-50 appearance-none cursor-pointer"
           >
             <option value="Semua">Semua Status</option>
-            <option value="Menunggu">Menunggu</option>
+            <option value="Draft">Draft</option>
+            <option value="Review">Menunggu</option>
             <option value="Disetujui">Disetujui</option>
             <option value="Ditolak">Ditolak</option>
-            <option value="Berjalan">Berjalan</option>
+            <option value="Cair">Berjalan</option>
             <option value="Lunas">Lunas</option>
           </select>
 
