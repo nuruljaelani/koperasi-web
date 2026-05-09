@@ -51,19 +51,19 @@ const navItems: NavItem[] = [
       { name: 'Laporan Rekap', href: '/bo/simpanan/laporan' },
     ]
   },
-  { 
-    name: 'Konten', 
-    icon: LayoutTemplate,
-    children: [
-      { name: 'Pengaturan Situs', href: '/bo/content/settings' },
-      { name: 'Hero Section', href: '/bo/content/hero' },
-      { name: 'Layanan', href: '/bo/content/services' },
-      { name: 'Berita & Pengumuman', href: '/bo/content/berita' },
-      { name: 'Tentang Kami', href: '/bo/content/tentang' },
-      { name: 'Testimoni', href: '/bo/content/testimonial' },
-    ]
-  },
-  { name: 'Pengaturan', href: '/bo/pengaturan', icon: Settings },
+  // { 
+  //   name: 'Konten', 
+  //   icon: LayoutTemplate,
+  //   children: [
+  //     { name: 'Pengaturan Situs', href: '/bo/content/settings' },
+  //     { name: 'Hero Section', href: '/bo/content/hero' },
+  //     { name: 'Layanan', href: '/bo/content/services' },
+  //     { name: 'Berita & Pengumuman', href: '/bo/content/berita' },
+  //     { name: 'Tentang Kami', href: '/bo/content/tentang' },
+  //     { name: 'Testimoni', href: '/bo/content/testimonial' },
+  //   ]
+  // },
+  // { name: 'Pengaturan', href: '/bo/pengaturan', icon: Settings },
 ];
 
 export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
