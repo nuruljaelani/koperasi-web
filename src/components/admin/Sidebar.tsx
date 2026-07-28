@@ -9,6 +9,7 @@ import {
   Users, 
   WalletCards, 
   PiggyBank, 
+  FileSpreadsheet,
   Settings, 
   LogOut,
   X,
@@ -51,6 +52,7 @@ const navItems: NavItem[] = [
       { name: 'Laporan Rekap', href: '/bo/simpanan/laporan' },
     ]
   },
+  { name: 'Laporan Pusat', href: '/bo/laporan', icon: FileSpreadsheet },
   // { 
   //   name: 'Konten', 
   //   icon: LayoutTemplate,
@@ -63,7 +65,7 @@ const navItems: NavItem[] = [
   //     { name: 'Testimoni', href: '/bo/content/testimonial' },
   //   ]
   // },
-  // { name: 'Pengaturan', href: '/bo/pengaturan', icon: Settings },
+  { name: 'Pengaturan', href: '/bo/pengaturan', icon: Settings },
 ];
 
 export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {

@@ -1,6 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { usePinjamanData, Pinjaman } from '@/hooks/usePinjamanData';
 import { useJenisPinjamanData } from '@/hooks/useJenisPinjamanData';
@@ -16,7 +18,8 @@ import {
   FileText,
   Eye,
   FileUp,
-  Download
+  Download,
+  Calculator
 } from 'lucide-react';
 import { addMonths, format, parseISO } from 'date-fns';
 import { id as localeID } from 'date-fns/locale';
@@ -44,7 +47,7 @@ const STATUS_COLOR: Record<string, { label: string; bg: string; text: string; ic
   Ditolak: { label: 'Ditolak', bg: 'bg-rose-50', text: 'text-rose-600', icon: XCircle },
 };
 
-export default function PinjamanPage() {
+function PinjamanContent() {
   const { user } = useAuth();
   const { isLoaded: pjLoaded, getByAnggotaId, addData } = usePinjamanData();
   const { dataList: jenisList, isLoaded: jpLoaded } = useJenisPinjamanData();
@@ -235,6 +238,29 @@ export default function PinjamanPage() {
     );
   };
 
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams) {
+      const nominalParam = searchParams.get('nominal');
+      const tenorParam = searchParams.get('tenor');
+      const tabParam = searchParams.get('tab');
+      if (nominalParam) {
+        const numValue = parseInt(nominalParam, 10);
+        if (!isNaN(numValue)) {
+          setJumlah(new Intl.NumberFormat('id-ID').format(numValue));
+        }
+      }
+      if (tenorParam) {
+        const tVal = parseInt(tenorParam, 10);
+        if (!isNaN(tVal)) setTenor(tVal);
+      }
+      if (tabParam === 'Pengajuan' || nominalParam) {
+        setIsModalOpen(true);
+      }
+    }
+  }, [searchParams]);
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-500">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -242,13 +268,22 @@ export default function PinjamanPage() {
           <h1 className="text-2xl font-bold text-slate-800">Pinjaman Saya</h1>
           <p className="text-slate-500">Kelola pinjaman dan status pengajuan Anda</p>
         </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 transition-colors active:scale-95 shadow-[0_4px_12px_rgba(5,150,105,0.2)]"
-        >
-          <Plus className="w-5 h-5" />
-          <span>Ajukan Pinjaman</span>
-        </button>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/member/simulasi"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-semibold hover:bg-emerald-50 hover:text-emerald-700 border border-slate-200 transition-colors"
+          >
+            <Calculator className="w-4 h-4 text-emerald-600" />
+            <span>Kalkulator Simulasi</span>
+          </Link>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 transition-colors active:scale-95 shadow-[0_4px_12px_rgba(5,150,105,0.2)]"
+          >
+            <Plus className="w-5 h-5" />
+            <span>Ajukan Pinjaman</span>
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -539,5 +574,17 @@ export default function PinjamanPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function PinjamanPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
+      </div>
+    }>
+      <PinjamanContent />
+    </Suspense>
   );
 }

@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   PiggyBank,
   WalletCards,
+  Calculator,
   FileText,
   LogOut,
   Building2,
@@ -22,6 +23,7 @@ const memberNav = [
   { name: 'Dashboard', href: '/member/dashboard', icon: LayoutDashboard },
   { name: 'Simpanan', href: '/member/simpanan', icon: PiggyBank },
   { name: 'Pinjaman', href: '/member/pinjaman', icon: WalletCards },
+  { name: 'Simulasi Pinjaman', href: '/member/simulasi', icon: Calculator },
   { name: 'Profil', href: '/member/profil', icon: User },
 ];
 
