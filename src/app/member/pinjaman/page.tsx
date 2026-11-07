@@ -3,10 +3,18 @@
 import { useMemo, useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import {
+  pengajuanPinjamanMemberSchema,
+  type PengajuanPinjamanMemberFormValues,
+} from '@/lib/validations/pinjaman';
 import { useAuth } from '@/hooks/useAuth';
 import { usePinjamanData, Pinjaman } from '@/hooks/usePinjamanData';
 import { useJenisPinjamanData } from '@/hooks/useJenisPinjamanData';
+import { uploadApi } from '@/lib/api';
 import TableFilter from '@/components/TableFilter';
+import Modal from '@/components/ui/Modal';
 import {
   Loader2,
   WalletCards,
@@ -19,10 +27,12 @@ import {
   Eye,
   FileUp,
   Download,
-  Calculator
+  Calculator,
+  ExternalLink,
 } from 'lucide-react';
 import { addMonths, format, parseISO } from 'date-fns';
 import { id as localeID } from 'date-fns/locale';
+import { toast } from 'sonner';
 
 const formatRupiah = (amount: number) =>
   new Intl.NumberFormat('id-ID', {
@@ -31,12 +41,13 @@ const formatRupiah = (amount: number) =>
     minimumFractionDigits: 0,
   }).format(amount);
 
-const formatDate = (dateStr: string) =>
-  new Date(dateStr).toLocaleDateString('id-ID', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+const formatDate = (dateStr: string) => {
+  try {
+    return format(parseISO(dateStr), 'dd MMM yyyy', { locale: localeID });
+  } catch {
+    return dateStr;
+  }
+};
 
 const STATUS_COLOR: Record<string, { label: string; bg: string; text: string; icon: any }> = {
   Cair: { label: 'Aktif (Cair)', bg: 'bg-emerald-50', text: 'text-emerald-600', icon: CheckCircle2 },
@@ -61,12 +72,7 @@ function PinjamanContent() {
   // Simulasi UI Modal Detail
   const [selectedPinjaman, setSelectedPinjaman] = useState<Pinjaman | null>(null);
 
-  // Form states
-  const [jenisId, setJenisId] = useState('');
-  const [jumlahMax, setJumlahMax] = useState('');
-  const [jumlah, setJumlah] = useState('');
-  const [tenor, setTenor] = useState(0);
-  const [tujuan, setTujuan] = useState('');
+  // Form state using React Hook Form & Zod
   const [errorMsg, setErrorMsg] = useState('');
   const [uploadedDocs, setUploadedDocs] = useState<{ jenis: string, file: File | null }[]>([
     { jenis: 'KTP', file: null },
@@ -74,12 +80,41 @@ function PinjamanContent() {
     { jenis: 'Dokumen Agunan (BPKB dll)', file: null },
   ]);
 
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    reset,
+    trigger,
+    formState: { errors },
+  } = useForm<PengajuanPinjamanMemberFormValues>({
+    resolver: zodResolver(pengajuanPinjamanMemberSchema) as any,
+    mode: 'onTouched',
+    defaultValues: {
+      jenisPinjamanId: '',
+      jumlahPengajuan: '',
+      tenor: 0,
+      tujuanPinjaman: '',
+    },
+  });
+
+  const watchJenisId = watch('jenisPinjamanId');
+  const watchJumlah = watch('jumlahPengajuan');
+  const watchTenor = watch('tenor');
+
+  const selectedJenis = useMemo(
+    () => jenisList.find((j) => j.id === watchJenisId),
+    [jenisList, watchJenisId]
+  );
+
   const anggotaId = user?.anggotaId ?? '';
   const myPinjaman = useMemo(() => getByAnggotaId(anggotaId), [getByAnggotaId, anggotaId]);
 
   const { riwayat, pengajuan } = useMemo(() => {
     const filtered = myPinjaman.filter(p => {
-      const matchSearch = !searchTerm || p.nomorPinjaman.toLowerCase().includes(searchTerm.toLowerCase());
+      const pNo = p.nomorPinjaman || '';
+      const matchSearch = !searchTerm || pNo.toLowerCase().includes(searchTerm.toLowerCase());
       const matchJenis = !jenisFilter || p.jenisPinjamanId === jenisFilter;
       return matchSearch && matchJenis;
     });
@@ -87,6 +122,34 @@ function PinjamanContent() {
     const p = filtered.filter(p => !['Cair', 'Lunas'].includes(p.status));
     return { riwayat: r, pengajuan: p };
   }, [myPinjaman, searchTerm, jenisFilter]);
+
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams) {
+      const nominalParam = searchParams.get('nominal');
+      const tenorParam = searchParams.get('tenor');
+      const tabParam = searchParams.get('tab');
+      if (nominalParam) {
+        const numValue = parseInt(nominalParam, 10);
+        if (!isNaN(numValue)) {
+          setValue('jumlahPengajuan', new Intl.NumberFormat('id-ID').format(numValue), {
+            shouldValidate: true,
+            shouldTouch: true,
+          });
+        }
+      }
+      if (tenorParam) {
+        const tVal = parseInt(tenorParam, 10);
+        if (!isNaN(tVal)) {
+          setValue('tenor', tVal, { shouldValidate: true, shouldTouch: true });
+        }
+      }
+      if (tabParam === 'Pengajuan' || nominalParam) {
+        setIsModalOpen(true);
+      }
+    }
+  }, [searchParams, setValue]);
 
   if (!pjLoaded || !jpLoaded || !user) {
     return (
@@ -99,11 +162,11 @@ function PinjamanContent() {
   const handleJumlahChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawValue = e.target.value.replace(/\D/g, '');
     const numValue = parseInt(rawValue, 10);
-    if (!isNaN(numValue)) {
-      setJumlah(new Intl.NumberFormat('id-ID').format(numValue));
-    } else {
-      setJumlah('');
-    }
+    const formatted = !isNaN(numValue) ? new Intl.NumberFormat('id-ID').format(numValue) : '';
+    setValue('jumlahPengajuan', formatted, {
+      shouldValidate: true,
+      shouldTouch: true,
+    });
   };
 
   const handleFileChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -114,49 +177,111 @@ function PinjamanContent() {
     }
   };
 
-  const handleAjukan = async (e: React.FormEvent, isDraft: boolean) => {
-    e.preventDefault();
+  const onValidSubmit = async (values: PengajuanPinjamanMemberFormValues, isDraft: boolean) => {
     setErrorMsg('');
-    
-    const numPinjam = parseInt(jumlah.replace(/\D/g, ''), 10);
-    if (!jenisId || !numPinjam || !tenor || !tujuan) {
-      setErrorMsg('Harap isi semua kolom form.');
-      return;
+    const numPinjam = parseInt(values.jumlahPengajuan.replace(/\D/g, ''), 10);
+
+    if (selectedJenis) {
+      if (selectedJenis.plafonMin && selectedJenis.plafonMin > 0 && numPinjam < selectedJenis.plafonMin) {
+        const msg = `Nominal pengajuan minimal ${formatRupiah(selectedJenis.plafonMin)} untuk ${selectedJenis.nama}.`;
+        setErrorMsg(msg);
+        toast.error(msg);
+        return;
+      }
+      if (selectedJenis.plafonMax && selectedJenis.plafonMax > 0 && numPinjam > selectedJenis.plafonMax) {
+        const msg = `Nominal pengajuan maksimal ${formatRupiah(selectedJenis.plafonMax)} untuk ${selectedJenis.nama}.`;
+        setErrorMsg(msg);
+        toast.error(msg);
+        return;
+      }
     }
 
     const unuploaded = uploadedDocs.filter(d => !d.file && d.jenis !== 'Dokumen Agunan (BPKB dll)');
     if (!isDraft && unuploaded.length > 0) {
-      setErrorMsg('Harap upload KTP dan KK.');
+      const msg = 'Harap upload dokumen KTP dan KK.';
+      setErrorMsg(msg);
+      toast.error(msg);
       return;
     }
 
     setIsSubmitting(true);
-    await new Promise(r => setTimeout(r, 800));
 
-    addData({
-      anggotaId,
-      jenisPinjamanId: jenisId,
-      jumlahPengajuan: numPinjam,
-      tenor,
-      tanggalPengajuan: new Date().toISOString(),
-      tujuanPinjaman: tujuan,
-      status: isDraft ? 'Draft' : 'Review',
-      dokumenPersyaratan: uploadedDocs.filter(d => d.file).map(d => ({
-        jenis: d.jenis,
-        namaFile: d.file?.name || '',
-        url: '#'
-      })),
-      catatanAdmin: ''
-    });
+    try {
+      let docUrls: Array<{ jenis: string; namaFile: string; url: string }> = [];
+      try {
+        docUrls = await Promise.all(
+          uploadedDocs
+            .filter((d) => d.file)
+            .map(async (d) => {
+              try {
+                const res = await uploadApi.uploadFile({
+                  file: d.file!,
+                  folder: 'koperasi/pinjaman',
+                });
+                return {
+                  jenis: d.jenis,
+                  namaFile: d.file?.name || '',
+                  url: res?.data?.url || '#',
+                };
+              } catch (err) {
+                console.warn('Gagal upload berkas ke Cloudinary:', err);
+                return {
+                  jenis: d.jenis,
+                  namaFile: d.file?.name || '',
+                  url: '#',
+                };
+              }
+            })
+        );
+      } catch (uploadErr) {
+        console.warn('Error saat upload dokumen pinjaman:', uploadErr);
+      }
 
-    setIsSubmitting(false);
-    setIsModalOpen(false);
-    setJenisId('');
-    setJumlah('');
-    setTenor(0);
-    setTujuan('');
-    setUploadedDocs(uploadedDocs.map(d => ({ ...d, file: null })));
-    setActiveTab('Pengajuan');
+      await addData({
+        anggotaId,
+        jenisPinjamanId: values.jenisPinjamanId,
+        jumlahPengajuan: numPinjam,
+        tenor: values.tenor,
+        tanggalPengajuan: new Date().toISOString(),
+        tujuanPinjaman: values.tujuanPinjaman,
+        status: isDraft ? 'Draft' : 'Review',
+        dokumenPersyaratan: docUrls,
+        catatanAdmin: '',
+      });
+
+      if (isDraft) {
+        toast.info('Pengajuan pinjaman disimpan sebagai draft');
+      } else {
+        toast.success('Pengajuan pinjaman beserta berkas berhasil dikirimkan!');
+      }
+
+      setIsModalOpen(false);
+      reset();
+      setUploadedDocs(uploadedDocs.map(d => ({ ...d, file: null })));
+      setActiveTab('Pengajuan');
+    } catch (submitErr: any) {
+      const msg = submitErr?.message || 'Gagal mengajukan pinjaman. Silakan periksa kembali formulir Anda.';
+      setErrorMsg(msg);
+      toast.error(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDraft = () => {
+    const curJenisId = watch('jenisPinjamanId');
+    const curJumlah = watch('jumlahPengajuan');
+    if (!curJenisId || !curJumlah) {
+      toast.error('Harap pilih jenis pinjaman dan nominal untuk draft.');
+      return;
+    }
+    const currentValues: PengajuanPinjamanMemberFormValues = {
+      jenisPinjamanId: curJenisId,
+      jumlahPengajuan: curJumlah,
+      tenor: watchTenor || 1,
+      tujuanPinjaman: watch('tujuanPinjaman') || 'Draft Pengajuan',
+    };
+    onValidSubmit(currentValues, true);
   };
 
   // Kalkulasi Jadwal Angsuran
@@ -171,13 +296,15 @@ function PinjamanContent() {
 
     const tglMulai = parseISO(p.tanggalPengajuan);
 
+    const sukuBungaBulanan = (jenis.sukuBunga / 12) / 100;
+
     for (let i = 1; i <= p.tenor; i++) {
       let bungaBulanIni = 0;
       
       if (jenis.tipeBunga === 'Flat' || jenis.tipeBunga === 'Anuitas') {
-        bungaBulanIni = pokokPinjaman * (jenis.sukuBunga / 100);
+        bungaBulanIni = pokokPinjaman * sukuBungaBulanan;
       } else if (jenis.tipeBunga === 'Menurun') {
-        bungaBulanIni = sisaPokok * (jenis.sukuBunga / 100);
+        bungaBulanIni = sisaPokok * sukuBungaBulanan;
       }
 
       const totalAngsuran = angsuranPokok + bungaBulanIni;
@@ -237,29 +364,6 @@ function PinjamanContent() {
       </div>
     );
   };
-
-  const searchParams = useSearchParams();
-
-  useEffect(() => {
-    if (searchParams) {
-      const nominalParam = searchParams.get('nominal');
-      const tenorParam = searchParams.get('tenor');
-      const tabParam = searchParams.get('tab');
-      if (nominalParam) {
-        const numValue = parseInt(nominalParam, 10);
-        if (!isNaN(numValue)) {
-          setJumlah(new Intl.NumberFormat('id-ID').format(numValue));
-        }
-      }
-      if (tenorParam) {
-        const tVal = parseInt(tenorParam, 10);
-        if (!isNaN(tVal)) setTenor(tVal);
-      }
-      if (tabParam === 'Pengajuan' || nominalParam) {
-        setIsModalOpen(true);
-      }
-    }
-  }, [searchParams]);
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-500">
@@ -351,9 +455,16 @@ function PinjamanContent() {
             {([...(activeTab === 'Riwayat' ? riwayat : pengajuan)])
               .sort((a, b) => new Date(b.tanggalPengajuan).getTime() - new Date(a.tanggalPengajuan).getTime())
               .map((p) => {
-                const StatusIcon = STATUS_COLOR[p.status]?.icon || Clock;
+                const statusInfo = STATUS_COLOR[p.status] || {
+                  label: p.status || 'Draft',
+                  bg: 'bg-slate-50',
+                  text: 'text-slate-600',
+                  icon: Clock,
+                };
+                const StatusIcon = statusInfo.icon || Clock;
                 const jp = jenisList.find(j => j.id === p.jenisPinjamanId);
                 const isSelected = selectedPinjaman?.id === p.id;
+                const borderClass = (statusInfo.text || 'text-slate-600').replace('text', 'border');
 
                 return (
                   <div key={p.id} className={`rounded-xl border ${isSelected ? 'border-emerald-200' : 'border-slate-200'} overflow-hidden transition-all duration-300`}>
@@ -362,7 +473,7 @@ function PinjamanContent() {
                       onClick={() => activeTab === 'Riwayat' && setSelectedPinjaman(isSelected ? null : p)}
                     >
                       <div className="flex items-start gap-4">
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${STATUS_COLOR[p.status]?.bg || 'bg-slate-50'} ${STATUS_COLOR[p.status]?.text || 'text-slate-600'}`}>
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${statusInfo.bg || 'bg-slate-50'} ${statusInfo.text || 'text-slate-600'}`}>
                           <WalletCards className="w-6 h-6" />
                         </div>
                         <div>
@@ -371,8 +482,8 @@ function PinjamanContent() {
                             <span className="px-2 py-0.5 rounded-md text-[10px] font-bold border border-slate-200 bg-slate-50 text-slate-600">
                               {jp?.nama || 'Unknown'}
                             </span>
-                            <span className={`${STATUS_COLOR[p.status]?.text} ${STATUS_COLOR[p.status]?.bg} border ${STATUS_COLOR[p.status]?.text.replace('text', 'border')} px-2 py-0.5 rounded text-[10px] uppercase font-bold flex items-center gap-1`}>
-                              <StatusIcon className="w-3 h-3" /> {STATUS_COLOR[p.status]?.label}
+                            <span className={`${statusInfo.text} ${statusInfo.bg} border ${borderClass} px-2 py-0.5 rounded text-[10px] uppercase font-bold flex items-center gap-1`}>
+                              <StatusIcon className="w-3 h-3" /> {statusInfo.label}
                             </span>
                           </div>
                           <div className="text-xs text-slate-500 font-medium">
@@ -403,9 +514,43 @@ function PinjamanContent() {
                     {activeTab === 'Pengajuan' && (
                       <div className="p-4 border-t border-slate-100 bg-slate-50 text-sm">
                         <div className="flex flex-col gap-2">
-                          <p><span className="text-slate-500">Dokumen Uploaded:</span> {p.dokumenPersyaratan.length > 0 ? p.dokumenPersyaratan.map(d => d.jenis).join(', ') : '-'}</p>
+                          <div>
+                            <span className="text-slate-500 font-medium block mb-1.5">Berkas / Dokumen Persyaratan:</span>
+                            {Array.isArray(p.dokumenPersyaratan) && p.dokumenPersyaratan.length > 0 ? (
+                              <div className="flex flex-wrap gap-2">
+                                {p.dokumenPersyaratan.map((d: any, idx: number) => {
+                                  const nama = typeof d === 'string' ? d : d?.jenis || d?.namaFile || `Dokumen ${idx + 1}`;
+                                  const url = typeof d === 'object' && d?.url ? d.url : (typeof d === 'string' && d.startsWith('http') ? d : null);
+                                  const isHttp = url && url.startsWith('http');
+                                  return isHttp ? (
+                                    <a
+                                      key={idx}
+                                      href={url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/80 rounded-xl text-xs font-semibold transition-all hover:shadow-sm"
+                                    >
+                                      <FileText className="w-3.5 h-3.5" />
+                                      {nama}
+                                      <ExternalLink className="w-3 h-3 text-emerald-500" />
+                                    </a>
+                                  ) : (
+                                    <span
+                                      key={idx}
+                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-200/70 text-slate-700 rounded-xl text-xs font-medium"
+                                    >
+                                      <FileText className="w-3.5 h-3.5 text-slate-500" />
+                                      {nama}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <span className="text-slate-400 italic text-xs">Belum ada dokumen yang dilampirkan</span>
+                            )}
+                          </div>
                           {p.catatanAdmin && (
-                            <div className="p-3 bg-amber-50 border border-amber-100 rounded-lg text-amber-800">
+                            <div className="p-3 bg-amber-50 border border-amber-100 rounded-lg text-amber-800 mt-1">
                               <span className="font-semibold text-xs uppercase block mb-1">Catatan Admin:</span>
                               {p.catatanAdmin}
                             </div>
@@ -421,23 +566,15 @@ function PinjamanContent() {
       </div>
 
       {/* Modal Pengajuan Baru */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
-          <div className="bg-white rounded-[24px] w-full max-w-2xl max-h-[90vh] overflow-y-auto relative z-10 shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="sticky top-0 bg-white/90 backdrop-blur-md p-6 border-b border-slate-100 flex items-center justify-between z-20">
-              <h3 className="text-xl font-bold text-slate-800">Form Pengajuan Pinjaman Baru</h3>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="p-2 text-slate-400 hover:bg-slate-50 rounded-xl transition-colors"
-                type="button"
-              >
-                <XCircle className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <form className="p-6 space-y-6">
-              {errorMsg && (
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title="Form Pengajuan Pinjaman Baru"
+        description="Lengkapi formulir dan dokumen persyaratan untuk mengajukan pinjaman baru."
+        size="2xl"
+      >
+        <form onSubmit={handleSubmit((data) => onValidSubmit(data, false))} className="p-6 space-y-6">
+          {errorMsg && (
                 <div className="p-3 bg-rose-50 text-rose-600 text-sm font-medium rounded-xl flex items-start gap-2 border border-rose-100">
                   <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                   <p>{errorMsg}</p>
@@ -446,68 +583,150 @@ function PinjamanContent() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Jenis Pinjaman</label>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                    Jenis Pinjaman <span className="text-rose-500">*</span>
+                  </label>
                   <select
-                    value={jenisId}
+                    {...register('jenisPinjamanId')}
                     onChange={(e) => {
-                      const sel = jenisList.find(j => j.id === e.target.value);
-                      setJenisId(e.target.value);
-                      setTenor(0);
+                      register('jenisPinjamanId').onChange(e);
+                      setValue('tenor', 0, { shouldValidate: true });
                     }}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none"
-                    required
+                    className={`w-full px-4 py-3 bg-slate-50 border rounded-xl text-slate-800 outline-none transition-all ${
+                      errors.jenisPinjamanId
+                        ? 'border-rose-500 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20'
+                        : 'border-slate-200 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
+                    }`}
                   >
-                    <option value="" disabled>Pilih Jenis Pinjaman</option>
-                    {jenisList.filter(j => j.status === 'Aktif').map(j => (
-                      <option key={j.id} value={j.id}>{j.nama}</option>
-                    ))}
+                    <option value="" disabled>
+                      {!jpLoaded
+                        ? 'Memuat data jenis pinjaman...'
+                        : jenisList.length === 0
+                        ? 'Belum ada jenis pinjaman tersedia'
+                        : 'Pilih Jenis Pinjaman'}
+                    </option>
+                    {jenisList
+                      .filter((j) => j.status === 'Aktif')
+                      .map((j) => (
+                        <option key={j.id} value={j.id}>
+                          {j.nama} {j.kode ? `(${j.kode})` : ''} - {j.sukuBunga}% / thn ({j.tipeBunga})
+                        </option>
+                      ))}
                   </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Tenor (Bulan)</label>
-                  <select
-                    value={tenor}
-                    onChange={(e) => setTenor(parseInt(e.target.value))}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none disabled:opacity-50"
-                    required
-                    disabled={!jenisId}
-                  >
-                    <option value="0" disabled>Pilih Tenor</option>
-                    {jenisId && Array.from({ length: jenisList.find(j => j.id === jenisId)?.tenorMaksimal || 0 }).map((_, i) => (
-                      <option key={i+1} value={i+1}>{i+1} Bulan</option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Nominal Pengajuan (Rp)</label>
-                  <input
-                    type="text"
-                    value={jumlah}
-                    onChange={handleJumlahChange}
-                    placeholder="Misal: 10.000.000"
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-bold focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none"
-                    required
-                  />
-                  {jenisId && (
-                    <p className="text-xs text-slate-500 mt-2 flex items-center gap-1">
-                      <AlertCircle className="w-3.5 h-3.5" /> 
-                      Suku Bunga: <strong className="text-emerald-700">{jenisList.find(j => j.id === jenisId)?.sukuBunga}% {jenisList.find(j => j.id === jenisId)?.tipeBunga}</strong> per bulan
+                  {errors.jenisPinjamanId && (
+                    <p className="text-xs text-rose-600 mt-1.5 flex items-center gap-1 font-medium">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      {errors.jenisPinjamanId.message}
                     </p>
                   )}
                 </div>
 
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                    Tenor (Bulan) <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    {...register('tenor', { valueAsNumber: true })}
+                    className={`w-full px-4 py-3 bg-slate-50 border rounded-xl text-slate-800 outline-none disabled:opacity-50 transition-all ${
+                      errors.tenor
+                        ? 'border-rose-500 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20'
+                        : 'border-slate-200 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
+                    }`}
+                    disabled={!watchJenisId || !selectedJenis}
+                  >
+                    <option value="0" disabled>
+                      {!watchJenisId ? 'Pilih jenis pinjaman terlebih dahulu' : 'Pilih Tenor'}
+                    </option>
+                    {selectedJenis &&
+                      Array.from({
+                        length:
+                          (selectedJenis.tenorMaksimal || 12) -
+                          (selectedJenis.tenorMinimal || 1) +
+                          1,
+                      }).map((_, i) => {
+                        const val = (selectedJenis.tenorMinimal || 1) + i;
+                        return (
+                          <option key={val} value={val}>
+                            {val} Bulan
+                          </option>
+                        );
+                      })}
+                  </select>
+                  {errors.tenor && (
+                    <p className="text-xs text-rose-600 mt-1.5 flex items-center gap-1 font-medium">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      {errors.tenor.message}
+                    </p>
+                  )}
+                </div>
+                
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Tujuan Pinjaman</label>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                    Nominal Pengajuan (Rp) <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={watchJumlah || ''}
+                    onChange={handleJumlahChange}
+                    onBlur={() => trigger('jumlahPengajuan')}
+                    placeholder="Misal: 10.000.000"
+                    className={`w-full px-4 py-3 bg-slate-50 border rounded-xl text-slate-800 font-bold outline-none transition-all ${
+                      errors.jumlahPengajuan
+                        ? 'border-rose-500 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20'
+                        : 'border-slate-200 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
+                    }`}
+                  />
+                  {errors.jumlahPengajuan && (
+                    <p className="text-xs text-rose-600 mt-1.5 flex items-center gap-1 font-medium">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      {errors.jumlahPengajuan.message}
+                    </p>
+                  )}
+                  {selectedJenis && (
+                    <div className="text-xs mt-2 space-y-1 bg-emerald-50/70 p-3 rounded-xl border border-emerald-100">
+                      <p className="flex items-center gap-1.5 font-medium text-emerald-800">
+                        <AlertCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span>Suku Bunga:</span>
+                        <strong>{selectedJenis.sukuBunga}% / tahun ({selectedJenis.tipeBunga})</strong>
+                      </p>
+                      {((selectedJenis.plafonMin ?? 0) > 0 || (selectedJenis.plafonMax ?? 0) > 0) && (
+                        <p className="text-slate-600">
+                          Batas Plafon:{' '}
+                          <span className="font-semibold text-slate-800">
+                            {formatRupiah(selectedJenis.plafonMin || 0)} s/d {formatRupiah(selectedJenis.plafonMax || 0)}
+                          </span>
+                        </p>
+                      )}
+                      {(selectedJenis.biayaAdmin ?? 0) > 0 && (
+                        <p className="text-slate-600">
+                          Biaya Admin:{' '}
+                          <span className="font-semibold text-slate-800">{selectedJenis.biayaAdmin}%</span>
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                    Tujuan Pinjaman <span className="text-rose-500">*</span>
+                  </label>
                   <textarea
-                    value={tujuan}
-                    onChange={(e) => setTujuan(e.target.value)}
+                    {...register('tujuanPinjaman')}
                     placeholder="Ceritakan singkat tujuan penggunaan dana pinjaman ini..."
                     rows={3}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none resize-none"
-                    required
+                    className={`w-full px-4 py-3 bg-slate-50 border rounded-xl text-slate-800 outline-none resize-none transition-all ${
+                      errors.tujuanPinjaman
+                        ? 'border-rose-500 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20'
+                        : 'border-slate-200 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
+                    }`}
                   />
+                  {errors.tujuanPinjaman && (
+                    <p className="text-xs text-rose-600 mt-1.5 flex items-center gap-1 font-medium">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      {errors.tujuanPinjaman.message}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -550,15 +769,14 @@ function PinjamanContent() {
               <div className="flex gap-3 pt-6 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={(e) => handleAjukan(e, true)}
+                  onClick={handleDraft}
                   disabled={isSubmitting}
                   className="flex-1 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors disabled:opacity-50"
                 >
                   Simpan Draft
                 </button>
                 <button
-                  type="button"
-                  onClick={(e) => handleAjukan(e, false)}
+                  type="submit"
                   disabled={isSubmitting}
                   className="flex-1 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-50 shadow-[0_4px_12px_rgba(5,150,105,0.2)]"
                 >
@@ -569,10 +787,8 @@ function PinjamanContent() {
                   )}
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+          </form>
+        </Modal>
     </div>
   );
 }

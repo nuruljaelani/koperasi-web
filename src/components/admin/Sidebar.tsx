@@ -53,18 +53,18 @@ const navItems: NavItem[] = [
     ]
   },
   { name: 'Laporan Pusat', href: '/bo/laporan', icon: FileSpreadsheet },
-  // { 
-  //   name: 'Konten', 
-  //   icon: LayoutTemplate,
-  //   children: [
-  //     { name: 'Pengaturan Situs', href: '/bo/content/settings' },
-  //     { name: 'Hero Section', href: '/bo/content/hero' },
-  //     { name: 'Layanan', href: '/bo/content/services' },
-  //     { name: 'Berita & Pengumuman', href: '/bo/content/berita' },
-  //     { name: 'Tentang Kami', href: '/bo/content/tentang' },
-  //     { name: 'Testimoni', href: '/bo/content/testimonial' },
-  //   ]
-  // },
+  { 
+    name: 'Konten Website', 
+    icon: LayoutTemplate,
+    children: [
+      { name: 'Pengaturan Situs', href: '/bo/content/settings' },
+      { name: 'Hero Section', href: '/bo/content/hero' },
+      { name: 'Layanan', href: '/bo/content/services' },
+      { name: 'Berita & Pengumuman', href: '/bo/content/berita' },
+      { name: 'Tentang Kami', href: '/bo/content/tentang' },
+      { name: 'Testimoni', href: '/bo/content/testimonial' },
+    ]
+  },
   { name: 'Pengaturan', href: '/bo/pengaturan', icon: Settings },
 ];
 
@@ -104,27 +104,27 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        <div className="flex items-center justify-between h-24 px-8 border-b border-slate-100">
-          <Link href="/admin/dashboard" className="flex items-center gap-4 group">
-            <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 transition-transform group-hover:scale-105 group-hover:rotate-3">
-              <Building2 className="w-6 h-6" />
+        <div className="flex items-center justify-between h-20 px-6 border-b border-slate-100">
+          <Link href="/bo/dashboard" className="flex items-center gap-3.5 group">
+            <div className="flex items-center justify-center w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-600 transition-transform group-hover:scale-105 group-hover:rotate-3 shadow-2xs">
+              <Building2 className="w-5 h-5" />
             </div>
             <div className="flex flex-col">
-              <span className="text-xl font-bold bg-linear-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
+              <span className="text-lg font-bold bg-linear-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
                 Koperasi
               </span>
-              <span className="text-xs font-semibold tracking-wider text-slate-400">ADMIN PANEL</span>
+              <span className="text-[10px] font-semibold tracking-wider text-slate-400">ADMIN PANEL</span>
             </div>
           </Link>
           <button 
             onClick={() => setIsOpen(false)}
-            className="p-2 text-slate-400 rounded-xl hover:bg-slate-50 transition-colors lg:hidden active:scale-95"
+            className="p-2 text-slate-400 rounded-xl hover:bg-slate-50 transition-colors lg:hidden active:scale-95 cursor-pointer"
           >
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        <nav className="flex-1 px-5 py-6 space-y-2 overflow-y-auto">
+        <nav className="flex-1 px-3.5 py-4 space-y-1.5 overflow-y-auto sidebar-scroll">
           {navItems.map((item) => {
             if (item.children) {
               const isChildActive = item.children.some(child => pathname === child.href || pathname?.startsWith(`${child.href}/`));
@@ -134,30 +134,30 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
                 <div key={item.name} className="space-y-1">
                   <button
                     onClick={() => toggleDropdown(item.name)}
-                    className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all duration-300 group ${
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all duration-200 group cursor-pointer ${
                       isChildActive 
-                        ? 'text-emerald-700 bg-emerald-50/80 font-medium' 
-                        : 'text-slate-500 hover:bg-slate-50 hover:text-emerald-600 font-medium'
+                        ? 'text-emerald-700 bg-emerald-50/80 font-bold' 
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-emerald-600 font-semibold'
                     }`}
                   >
-                    <div className="flex items-center gap-4">
-                      <item.icon className={`w-5 h-5 transition-transform duration-300 ${isChildActive ? 'text-emerald-600 scale-110' : 'text-slate-400 group-hover:text-emerald-500 group-hover:scale-110'}`} />
-                      <span>{item.name}</span>
+                    <div className="flex items-center gap-3.5">
+                      <item.icon className={`w-5 h-5 transition-transform duration-200 ${isChildActive ? 'text-emerald-600 scale-105' : 'text-slate-400 group-hover:text-emerald-500 group-hover:scale-105'}`} />
+                      <span className="text-sm">{item.name}</span>
                     </div>
-                    <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
+                    <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
                   </button>
                   
                   {isExpanded && (
-                    <div className="ml-12 pr-4 space-y-1 mt-1">
+                    <div className="ml-9 pr-2 space-y-1 mt-1 border-l-2 border-emerald-100/60 pl-2">
                       {item.children.map((child) => {
                         const isActive = pathname === child.href || pathname?.startsWith(`${child.href}/`);
                         return (
                           <Link
                             key={child.href}
                             href={child.href}
-                            className={`block px-4 py-2.5 rounded-xl text-sm transition-all duration-300 ${
+                            className={`block px-3 py-2 rounded-lg text-xs transition-all duration-200 ${
                               isActive
-                                ? 'text-emerald-700 bg-emerald-50/50 font-bold'
+                                ? 'text-emerald-700 bg-emerald-50/70 font-bold'
                                 : 'text-slate-500 hover:text-emerald-600 hover:bg-slate-50 font-medium'
                             }`}
                           >
@@ -176,30 +176,30 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
               <Link
                 key={item.href}
                 href={item.href!}
-                className={`flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 group relative overflow-hidden ${
+                className={`flex items-center gap-3.5 px-3.5 py-2.5 rounded-xl transition-all duration-200 group relative overflow-hidden ${
                   isActive 
-                    ? 'text-emerald-700 bg-emerald-50/80 shadow-sm font-medium' 
-                    : 'text-slate-500 hover:bg-slate-50 hover:text-emerald-600 font-medium'
+                    ? 'text-emerald-700 bg-emerald-50/80 shadow-2xs font-bold' 
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-emerald-600 font-semibold'
                 }`}
               >
                 {isActive && (
-                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500 rounded-r-lg" />
+                  <div className="absolute left-0 top-1 bottom-1 w-1 bg-emerald-500 rounded-r-lg" />
                 )}
-                <item.icon className={`w-5 h-5 transition-transform duration-300 ${
-                  isActive ? 'text-emerald-600 scale-110' : 'text-slate-400 group-hover:text-emerald-500 group-hover:scale-110'
+                <item.icon className={`w-5 h-5 transition-transform duration-200 ${
+                  isActive ? 'text-emerald-600 scale-105' : 'text-slate-400 group-hover:text-emerald-500 group-hover:scale-105'
                 }`} />
-                <span className="relative z-10">{item.name}</span>
+                <span className="relative z-10 text-sm">{item.name}</span>
               </Link>
             );
           })}
         </nav>
 
-        <div className="p-4 border-t border-slate-100">
+        <div className="p-3.5 border-t border-slate-100 bg-white">
           <button
             onClick={() => { logout(); router.push('/login'); }}
-            className="flex items-center justify-center gap-3 w-full text-rose-600 rounded-2xl hover:bg-rose-50 transition-all active:scale-[0.98] font-medium border border-transparent hover:border-rose-100 py-3"
+            className="flex items-center justify-center gap-2.5 w-full text-rose-600 rounded-xl hover:bg-rose-50 transition-all active:scale-[0.98] font-bold text-sm border border-transparent hover:border-rose-100 py-2.5 cursor-pointer"
           >
-            <LogOut className="w-5 h-5" />
+            <LogOut className="w-4 h-4" />
             <span>Keluar Sistem</span>
           </button>
         </div>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useAuthStore } from '@/store/useAuthStore';
 import { useAnggotaData, Anggota } from '@/hooks/useAnggotaData';
 import {
   Camera,
@@ -12,15 +13,17 @@ import {
   CheckCircle2,
   AlertCircle
 } from 'lucide-react';
+import { toast } from 'sonner';
+import PhotoUploadModal from '@/components/member/PhotoUploadModal';
+import { uploadApi } from '@/lib/api';
 
 export default function ProfilPage() {
   const { user, changePassword, updateIdentity } = useAuth();
   const { getAnggota, updateAnggota, isLoaded: anggotaLoaded } = useAnggotaData();
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  // State Profile Image
+  // State Profile Image Modal & Data
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
 
   // State Tabs
   const [activeTab, setActiveTab] = useState<'DataPribadi' | 'Keamanan'>('DataPribadi');
@@ -58,7 +61,7 @@ export default function ProfilPage() {
         jenisKelamin: data.jenisKelamin
       });
 
-      const img = localStorage.getItem(`koperasi_profile_img_${user.id}`);
+      const img = data.fotoProfil || useAuthStore.getState().profileImages[user.id];
       if (img) setProfileImage(img);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -73,17 +76,28 @@ export default function ProfilPage() {
     );
   }
 
-  // Handle Photo Upload
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result as string;
-        setProfileImage(base64);
-        localStorage.setItem(`koperasi_profile_img_${user.id}`, base64);
-      };
-      reader.readAsDataURL(file);
+  // Handle Save Photo from Modal to Backend (Cloudinary)
+  const handleSavePhoto = async (base64: string) => {
+    try {
+      const res = await uploadApi.uploadAvatar({
+        image: base64,
+        memberId: user.anggotaId || undefined,
+      });
+
+      const photoUrl = res?.data?.url || base64;
+      setProfileImage(photoUrl);
+      useAuthStore.getState().setProfileImage(user.id, photoUrl);
+
+      if (res?.data?.isCloudinary) {
+        toast.success('Foto profil berhasil diunggah ke Cloudinary!');
+      } else {
+        toast.success(res?.data?.message || 'Foto profil berhasil diperbarui!');
+      }
+    } catch (err: any) {
+      console.warn('Gagal upload ke server Cloudinary, fallback ke local store:', err);
+      setProfileImage(base64);
+      useAuthStore.getState().setProfileImage(user.id, base64);
+      toast.success('Foto profil berhasil diperbarui!');
     }
   };
 
@@ -107,9 +121,13 @@ export default function ProfilPage() {
         jenisKelamin: formData.jenisKelamin as 'Laki-laki' | 'Perempuan',
       });
       updateIdentity(user.id, formData.nama);
-      setDataMessage({ type: 'success', text: 'Data pribadi berhasil diperbarui.' });
+      const msg = 'Data pribadi berhasil diperbarui.';
+      setDataMessage({ type: 'success', text: msg });
+      toast.success(msg);
     } catch {
-      setDataMessage({ type: 'error', text: 'Terjadi kesalahan saat menyimpan data.' });
+      const msg = 'Terjadi kesalahan saat menyimpan data.';
+      setDataMessage({ type: 'error', text: msg });
+      toast.error(msg);
     } finally {
       setIsSavingData(false);
       setTimeout(() => setDataMessage(null), 3000);
@@ -121,25 +139,33 @@ export default function ProfilPage() {
     setPwMessage(null);
 
     if (passwordForm.baru !== passwordForm.konfirmasi) {
-      setPwMessage({ type: 'error', text: 'Konfirmasi password tidak cocok.' });
+      const msg = 'Konfirmasi password tidak cocok.';
+      setPwMessage({ type: 'error', text: msg });
+      toast.error(msg);
       return;
     }
 
     if (passwordForm.baru.length < 6) {
-      setPwMessage({ type: 'error', text: 'Password minimal 6 karakter.' });
+      const msg = 'Password minimal 6 karakter.';
+      setPwMessage({ type: 'error', text: msg });
+      toast.error(msg);
       return;
     }
 
     setIsSavingPw(true);
     await new Promise(r => setTimeout(r, 600));
 
-    const result = changePassword(user.id, passwordForm.lama, passwordForm.baru);
+    const result = await changePassword(user.id, passwordForm.lama, passwordForm.baru);
     
     if (result.success) {
-      setPwMessage({ type: 'success', text: 'Password berhasil diubah!' });
+      const msg = 'Password berhasil diubah!';
+      setPwMessage({ type: 'success', text: msg });
+      toast.success(msg);
       setPasswordForm({ lama: '', baru: '', konfirmasi: '' });
     } else {
-      setPwMessage({ type: 'error', text: result.error || 'Gagal mengubah password.' });
+      const msg = result.error || 'Gagal mengubah password.';
+      setPwMessage({ type: 'error', text: msg });
+      toast.error(msg);
     }
     
     setIsSavingPw(false);
@@ -168,19 +194,14 @@ export default function ProfilPage() {
                 )}
               </div>
               <button 
-                onClick={() => fileInputRef.current?.click()}
-                className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow hover:bg-emerald-700 transition-colors"
-                title="Ganti Foto"
+                type="button"
+                onClick={() => setIsPhotoModalOpen(true)}
+                className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-md hover:bg-emerald-700 transition-all hover:scale-110 active:scale-95 cursor-pointer"
+                title="Ganti Foto Profil"
+                aria-label="Ganti Foto Profil"
               >
                 <Camera className="w-4 h-4" />
               </button>
-              <input 
-                ref={fileInputRef}
-                type="file" 
-                accept="image/*" 
-                className="hidden" 
-                onChange={handlePhotoUpload} 
-              />
             </div>
             <h3 className="font-bold text-slate-800 leading-tight">{formData.nama || user.nama}</h3>
             <p className="text-xs font-semibold text-emerald-600 mt-1">{user.username}</p>
@@ -358,6 +379,15 @@ export default function ProfilPage() {
 
         </div>
       </div>
+
+      {/* Modal Upload & Ganti Foto Profil */}
+      <PhotoUploadModal
+        isOpen={isPhotoModalOpen}
+        onClose={() => setIsPhotoModalOpen(false)}
+        currentImage={profileImage}
+        userName={formData.nama || user.nama}
+        onSave={handleSavePhoto}
+      />
     </div>
   );
 }

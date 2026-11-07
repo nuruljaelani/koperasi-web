@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useTestimoniData, type Testimoni } from '@/hooks/useContentData';
-import { Plus, Pencil, Trash2, X, Save, Star, Quote } from 'lucide-react';
+import Modal from '@/components/ui/Modal';
+import { Plus, Pencil, Trash2, Save, Star, Quote } from 'lucide-react';
 
 const inputCls = 'w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 transition-all';
 
@@ -39,17 +40,33 @@ function TestimoniModal({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg p-8 space-y-5 animate-in zoom-in-95 duration-200">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-slate-900">{title}</h3>
-          <button onClick={onClose} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors">
-            <X size={18} />
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title={title}
+      size="lg"
+      footer={
+        <div className="flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl font-medium transition-colors"
+          >
+            Batal
+          </button>
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={!form.nama.trim() || !form.teks.trim()}
+            className="flex items-center gap-2 px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-all"
+          >
+            <Save size={15} />
+            Simpan
           </button>
         </div>
-
-        <div className="space-y-4">
+      }
+    >
+      <div className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-slate-700">Nama <span className="text-red-400">*</span></label>
@@ -75,22 +92,9 @@ function TestimoniModal({
             <StarRating value={form.bintang} onChange={bintang => setForm({ ...form, bintang })} />
           </div>
         </div>
-
-        <div className="flex justify-end gap-3 pt-2">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl font-medium transition-colors">Batal</button>
-          <button
-            onClick={onSave}
-            disabled={!form.nama.trim() || !form.teks.trim()}
-            className="flex items-center gap-2 px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-all"
-          >
-            <Save size={15} />
-            Simpan
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+      </Modal>
+    );
+  }
 
 function StarDisplay({ count }: { count: number }) {
   return (

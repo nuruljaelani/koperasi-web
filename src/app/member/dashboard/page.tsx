@@ -56,29 +56,38 @@ const JENIS_COLOR: Record<string, string> = {
 export default function MemberDashboardPage() {
   const { user } = useAuth();
   const { anggotaList, isLoaded: aLoaded } = useAnggotaData();
-  const { isLoaded: sLoaded, getByAnggota, getTotalByAnggota } = useSimpananData();
+  const { dataList: dataListSimpanan, isLoaded: sLoaded, getByAnggota, getTotalByAnggota } = useSimpananData();
   const { dataList: pinjamanList, isLoaded: pLoaded } = usePinjamanData();
   const { dataList: jenisList, isLoaded: jLoaded } = useJenisPinjamanData();
 
   const isLoaded = aLoaded && sLoaded && pLoaded && jLoaded;
 
   const anggotaId = user?.anggotaId ?? '';
+  console.log(pinjamanList)
 
   const anggota = useMemo(
-    () => anggotaList.find((a) => a.id === anggotaId),
-    [anggotaList, anggotaId]
+    () =>
+      anggotaList.find((a) => a.id === anggotaId) || {
+        id: user?.anggotaId || user?.id || '',
+        nomorAnggota: (user as any)?.noAnggota || 'A-1001',
+        nama: user?.nama || user?.username || 'Anggota',
+        nik: '',
+        nomorHp: user?.phone || '',
+        alamat: '',
+        tanggalLahir: '',
+        jenisKelamin: 'Laki-laki' as const,
+        status: 'Aktif' as const,
+      },
+    [anggotaList, anggotaId, user]
   );
 
-  const mySimpanan = useMemo(() => getByAnggota(anggotaId), [getByAnggota, anggotaId]);
+  const mySimpanan = useMemo(() => (dataListSimpanan?.length ? dataListSimpanan : getByAnggota(anggotaId)), [dataListSimpanan, getByAnggota, anggotaId]);
   const totalSimpanan = useMemo(() => getTotalByAnggota(anggotaId), [getTotalByAnggota, anggotaId]);
 
-  const myPinjaman = useMemo(
-    () => pinjamanList.filter((p) => p.anggotaId === anggotaId),
-    [pinjamanList, anggotaId]
-  );
+  const myPinjaman = useMemo(() => pinjamanList, [pinjamanList]);
 
   const activePinjaman = useMemo(
-    () => myPinjaman.find((p) => p.status === 'Cair'),
+    () => myPinjaman.find((p) => p.status === 'Cair' || p.status === 'Review' || p.status === 'Disetujui'),
     [myPinjaman]
   );
 

@@ -1,224 +1,198 @@
-import Image from "next/image";
-import Link from "next/link";
-import type { Metadata } from "next";
+'use client';
 
-export const metadata: Metadata = {
-  title: "Berita - UPK Mekarsari",
-  description: "Kabar terbaru, pengumuman, dan artikel seputar UPK Mekarsari.",
+import { useState } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { useBeritaData } from '@/hooks/useContentData';
+import { Search, Calendar, ArrowRight, Newspaper } from 'lucide-react';
+
+const KATEGORI_LIST = ['Semua', 'Pengumuman', 'Layanan', 'Kisah Sukses', 'Sosial', 'Kegiatan'];
+
+const KATEGORI_COLOR: Record<string, string> = {
+  Pengumuman: 'bg-blue-100 text-blue-700',
+  Layanan: 'bg-emerald-100 text-emerald-700',
+  'Kisah Sukses': 'bg-amber-100 text-amber-700',
+  Sosial: 'bg-pink-100 text-pink-700',
+  Kegiatan: 'bg-purple-100 text-purple-700',
+  Lainnya: 'bg-slate-100 text-slate-600',
 };
-
-const beritaUtama = {
-  title: "Rapat Anggota Tahunan (RAT) Tahun Buku 2025 Sukses Digelar",
-  date: "15 Maret 2026",
-  category: "Pengumuman",
-  excerpt: "Koperasi UPK Mekarsari sukses menyelenggarakan Rapat Anggota Tahunan dengan agenda pembagian SHU dan pemaparan rencana kerja untuk tahun mendatang. Terima kasih atas partisipasi aktif seluruh anggota.",
-  image: "/images/berita-headline.png",
-  url: "#",
-};
-
-const beritaLainnya = [
-  {
-    title: "Peluncuran Layanan Simulasi Pembiayaan Digital",
-    date: "10 Maret 2026",
-    category: "Layanan",
-    excerpt: "Untuk memudahkan anggota dalam merencanakan keuangannya, kami meluncurkan fitur kalkulator simulasi pembiayaan dan simpanan langsung dari website kami.",
-    image: "/images/berita-1.png",
-    url: "#",
-  },
-  {
-    title: "Kisah Sukses: Bantuan Modal untuk Warung Ibu Siti",
-    date: "28 Februari 2026",
-    category: "Kisah Sukses",
-    excerpt: "Melalui program Pembiayaan Usaha, Ibu Siti berhasil mengembangkan warungnya menjadi minimarket kecil yang melayani kebutuhan warga desa.",
-    image: "/images/berita-2.png",
-    url: "#",
-  },
-  {
-    title: "Beasiswa Pendidikan untuk Putra/Putri Anggota Berprestasi",
-    date: "15 Februari 2026",
-    category: "Sosial",
-    excerpt: "Sebagai bentuk tanggung jawab sosial, UPK Mekarsari membagikan beasiswa kepada 50 pelajar berprestasi dari keluarga anggota aktif.",
-    image: "/images/berita-3.png",
-    url: "#",
-  },
-  {
-    title: "Peluncuran Layanan Simulasi Pembiayaan Digital",
-    date: "10 Maret 2026",
-    category: "Layanan",
-    excerpt: "Untuk memudahkan anggota dalam merencanakan keuangannya, kami meluncurkan fitur kalkulator simulasi pembiayaan dan simpanan langsung dari website kami.",
-    image: "/images/berita-1.png",
-    url: "#",
-  },
-  {
-    title: "Kisah Sukses: Bantuan Modal untuk Warung Ibu Siti",
-    date: "28 Februari 2026",
-    category: "Kisah Sukses",
-    excerpt: "Melalui program Pembiayaan Usaha, Ibu Siti berhasil mengembangkan warungnya menjadi minimarket kecil yang melayani kebutuhan warga desa.",
-    image: "/images/berita-2.png",
-    url: "#",
-  },
-  {
-    title: "Beasiswa Pendidikan untuk Putra/Putri Anggota Berprestasi",
-    date: "15 Februari 2026",
-    category: "Sosial",
-    excerpt: "Sebagai bentuk tanggung jawab sosial, UPK Mekarsari membagikan beasiswa kepada 50 pelajar berprestasi dari keluarga anggota aktif.",
-    image: "/images/berita-3.png",
-    url: "#",
-  },
-];
 
 export default function BeritaPage() {
+  const { items, isLoading } = useBeritaData();
+  const [selectedKategori, setSelectedKategori] = useState('Semua');
+  const [search, setSearch] = useState('');
+
+  const published = items.filter((b) => b.status === 'published');
+
+  const filtered = published.filter((b) => {
+    const matchCat = selectedKategori === 'Semua' || b.kategori === selectedKategori;
+    const matchSearch =
+      b.judul.toLowerCase().includes(search.toLowerCase()) ||
+      b.excerpt.toLowerCase().includes(search.toLowerCase());
+    return matchCat && matchSearch;
+  });
+
+  const beritaUtama = published.find((b) => b.isUtama) || published[0];
+  const listToRender = filtered.filter((b) => b.id !== (selectedKategori === 'Semua' && !search ? beritaUtama?.id : null));
+
   return (
     <>
       {/* Hero */}
-      <section className="page-hero py-10 lg:py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
-          <h1 className="text-3xl lg:text-4xl font-bold text-white mb-3">Berita & Pengumuman</h1>
-          <p className="text-white/70 max-w-xl mx-auto">
-            Kabar terbaru, agenda kegiatan, dan kisah sukses anggota UPK Mekarsari.
+      <section className="page-hero py-12 lg:py-16 bg-gradient-to-br from-emerald-800 via-emerald-900 to-slate-900 text-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10 space-y-4">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-200 text-xs font-bold uppercase tracking-wider">
+            <Newspaper size={14} />
+            Kabar & Informasi Terkini
+          </div>
+          <h1 className="text-3xl lg:text-5xl font-extrabold tracking-tight">Berita & Pengumuman</h1>
+          <p className="text-emerald-100/80 max-w-xl mx-auto text-base sm:text-lg">
+            Kabar terbaru, agenda kegiatan, dan kisah sukses anggota Koperasi Simpan Pinjam UPK Mekarsari.
           </p>
         </div>
       </section>
 
-      {/* Featured News */}
-      <section className="bg-neutral-50 py-10 lg:py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mb-12">
-            <h2 className="text-2xl lg:text-3xl font-bold text-neutral-900 mb-2">Berita Utama</h2>
-            <div className="w-20 h-1 bg-primary-700 rounded-full"></div>
-          </div>
-          
-          <Link href={beritaUtama.url} className="group grid lg:grid-cols-2 gap-8 lg:gap-12 items-center bg-white rounded-2xl overflow-hidden shadow-md border border-neutral-100 hover:shadow-xl transition-all">
-            <div className="relative h-[300px] lg:h-[400px] w-full overflow-hidden">
-              <Image 
-                src={beritaUtama.image} 
-                alt={beritaUtama.title}
-                fill
-                className="object-cover group-hover:scale-105 transition-transform duration-500"
-              />
-            </div>
-            <div className="p-8 lg:p-12 lg:pl-0">
-              <div className="flex items-center gap-4 mb-4">
-                <span className="px-3 py-1 bg-primary-100 text-primary-800 text-xs font-bold rounded-full">
-                  {beritaUtama.category}
-                </span>
-                <span className="text-neutral-500 text-sm flex items-center gap-1">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                    <line x1="16" y1="2" x2="16" y2="6"/>
-                    <line x1="8" y1="2" x2="8" y2="6"/>
-                    <line x1="3" y1="10" x2="21" y2="10"/>
-                  </svg>
-                  {beritaUtama.date}
-                </span>
+      {/* Main Section */}
+      <section className="bg-neutral-50/60 py-10 lg:py-16 min-h-[60vh]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
+          {/* Featured News (Only on Default view without search) */}
+          {selectedKategori === 'Semua' && !search && beritaUtama && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                <h2 className="text-xs font-extrabold uppercase tracking-widest text-slate-500">Berita Utama Pilihan</h2>
               </div>
-              <h3 className="text-2xl lg:text-3xl font-bold text-neutral-900 mb-6 group-hover:text-primary-700 transition-colors">
-                {beritaUtama.title}
-              </h3>
-              <p className="text-neutral-600 leading-relaxed mb-8">
-                {beritaUtama.excerpt}
-              </p>
-              <div className="inline-flex items-center gap-2 text-primary-700 font-semibold group-hover:gap-3 transition-all">
-                Baca Selengkapnya
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M5 12h14M12 5l7 7-7 7" />
-                </svg>
-              </div>
-            </div>
-          </Link>
-        </div>
-      </section>
 
-      {/* Other News Grid */}
-      <section className="bg-white py-10 lg:py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mb-12 flex justify-between items-end">
-            <div>
-              <h2 className="text-2xl lg:text-3xl font-bold text-neutral-900 mb-2">Semua Berita</h2>
-              <div className="w-20 h-1 bg-primary-700 rounded-full"></div>
-            </div>
-            {/* <Link href="#" className="hidden sm:inline-flex items-center gap-2 text-primary-700 font-semibold hover:text-primary-800 transition-colors">
-              Lihat Semua Berita
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M5 12h14M12 5l7 7-7 7" />
-              </svg>
-            </Link> */}
-          </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {beritaLainnya.map((berita, i) => (
-              <Link key={i} href={berita.url} className="group bg-white rounded-2xl overflow-hidden shadow-sm border border-neutral-100 hover:shadow-lg transition-all flex flex-col">
-                <div className="relative h-[240px] w-full overflow-hidden">
-                  <Image 
-                    src={berita.image} 
-                    alt={berita.title}
-                    fill
-                    className="object-cover group-hover:scale-105 transition-transform duration-500"
+              <Link
+                href={`/berita/${beritaUtama.slug || beritaUtama.id}`}
+                className="group grid lg:grid-cols-2 gap-8 items-center bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl border border-slate-100 transition-all duration-300"
+              >
+                <div className="relative h-[280px] lg:h-[380px] w-full overflow-hidden bg-slate-100">
+                  <img
+                    src={beritaUtama.gambar || '/images/berita-headline.png'}
+                    alt={beritaUtama.judul}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
                   <div className="absolute top-4 left-4">
-                    <span className="px-3 py-1 bg-white border border-neutral-200 text-neutral-900 text-xs font-bold rounded-full shadow-sm">
-                      {berita.category}
+                    <span className="px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider bg-white/95 text-emerald-800 shadow-md backdrop-blur-sm">
+                      {beritaUtama.kategori}
                     </span>
                   </div>
                 </div>
-                <div className="p-8 flex flex-col flex-grow">
-                  <span className="text-neutral-500 text-sm flex items-center gap-1 mb-4">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                      <line x1="16" y1="2" x2="16" y2="6"/>
-                      <line x1="8" y1="2" x2="8" y2="6"/>
-                      <line x1="3" y1="10" x2="21" y2="10"/>
-                    </svg>
-                    {berita.date}
-                  </span>
-                  <h3 className="text-xl font-bold text-neutral-900 mb-4 group-hover:text-primary-700 transition-colors">
-                    {berita.title}
+
+                <div className="p-6 sm:p-10 space-y-4">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-400">
+                    <Calendar size={13} />
+                    <span>{beritaUtama.tanggal}</span>
+                  </div>
+                  <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-900 group-hover:text-emerald-700 transition-colors leading-snug">
+                    {beritaUtama.judul}
                   </h3>
-                  <p className="text-neutral-600 text-sm leading-relaxed mb-6 flex-grow">
-                    {berita.excerpt}
+                  <p className="text-slate-600 line-clamp-3 text-sm sm:text-base leading-relaxed">
+                    {beritaUtama.excerpt}
                   </p>
-                  <div className="inline-flex items-center gap-2 text-primary-700 font-semibold text-sm group-hover:gap-3 transition-all mt-auto">
-                    Baca Selengkapnya
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <path d="M5 12h14M12 5l7 7-7 7" />
-                    </svg>
+                  <div className="inline-flex items-center gap-2 text-sm font-bold text-emerald-700 pt-2 group-hover:translate-x-1 transition-transform">
+                    <span>Baca Selengkapnya</span>
+                    <ArrowRight size={16} />
                   </div>
                 </div>
               </Link>
-            ))}
-          </div>
-          {/* Pagination */}
-          <div className="mt-12 flex justify-center items-center gap-1 sm:gap-2">
-            <button className="w-10 h-10 flex items-center justify-center rounded-lg border border-neutral-200 text-neutral-500 hover:bg-neutral-50 hover:text-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer" disabled>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M15 18l-6-6 6-6" />
-              </svg>
-            </button>
-            
-            <button className="w-10 h-10 flex items-center justify-center rounded-lg bg-primary-700 text-white font-semibold shadow-sm cursor-pointer">
-              1
-            </button>
-            <button className="w-10 h-10 flex items-center justify-center rounded-lg border border-neutral-200 text-neutral-700 hover:bg-neutral-50 hover:text-primary-700 font-medium transition-colors cursor-pointer">
-              2
-            </button>
-            <button className="w-10 h-10 flex items-center justify-center rounded-lg border border-neutral-200 text-neutral-700 hover:bg-neutral-50 hover:text-primary-700 font-medium transition-colors cursor-pointer">
-              3
-            </button>
-            
-            <span className="w-10 h-10 flex items-center justify-center text-neutral-500">
-              ...
-            </span>
-            
-            <button className="w-10 h-10 flex items-center justify-center rounded-lg border border-neutral-200 text-neutral-700 hover:bg-neutral-50 hover:text-primary-700 font-medium transition-colors cursor-pointer">
-              12
-            </button>
+            </div>
+          )}
 
-            <button className="w-10 h-10 flex items-center justify-center rounded-lg border border-neutral-200 text-neutral-700 hover:bg-neutral-50 hover:text-primary-700 transition-colors cursor-pointer">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 18l6-6-6-6" />
-              </svg>
-            </button>
+          {/* Filters & Search */}
+          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+            {/* Category tabs */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0 scrollbar-none">
+              {KATEGORI_LIST.map((kat) => (
+                <button
+                  key={kat}
+                  onClick={() => setSelectedKategori(kat)}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                    selectedKategori === kat
+                      ? 'bg-emerald-600 text-white shadow-sm'
+                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  {kat}
+                </button>
+              ))}
+            </div>
+
+            {/* Search Input */}
+            <div className="relative min-w-[240px]">
+              <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Cari berita atau artikel..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 transition-all"
+              />
+            </div>
           </div>
+
+          {/* News Grid */}
+          {isLoading ? (
+            <div className="py-20 flex flex-col items-center justify-center">
+              <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-3" />
+              <p className="text-xs font-medium text-slate-400">Memuat kabar terbaru...</p>
+            </div>
+          ) : listToRender.length === 0 ? (
+            <div className="text-center py-16 bg-white rounded-3xl border border-slate-100 p-8 space-y-3">
+              <Newspaper size={36} className="mx-auto text-slate-300" />
+              <h3 className="font-bold text-slate-800 text-lg">Tidak ada berita yang sesuai</h3>
+              <p className="text-slate-500 text-sm max-w-sm mx-auto">
+                Coba ubah kata kunci pencarian atau pilih kategori lain untuk melihat artikel lainnya.
+              </p>
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+              {listToRender.map((b) => (
+                <Link
+                  key={b.id}
+                  href={`/berita/${b.slug || b.id}`}
+                  className="group bg-white rounded-3xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col hover:-translate-y-1"
+                >
+                  <div className="relative h-48 w-full overflow-hidden bg-slate-100">
+                    <img
+                      src={b.gambar || '/images/berita-1.png'}
+                      alt={b.judul}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                    <div className="absolute top-3 left-3">
+                      <span
+                        className={`px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider ${
+                          KATEGORI_COLOR[b.kategori] || 'bg-slate-100 text-slate-700'
+                        } shadow-sm`}
+                      >
+                        {b.kategori}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="p-6 flex-1 flex flex-col justify-between space-y-3">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
+                        <Calendar size={12} />
+                        <span>{b.tanggal}</span>
+                      </div>
+                      <h4 className="font-bold text-slate-900 text-lg group-hover:text-emerald-700 transition-colors leading-snug line-clamp-2">
+                        {b.judul}
+                      </h4>
+                      <p className="text-slate-500 text-xs sm:text-sm line-clamp-3 leading-relaxed">
+                        {b.excerpt}
+                      </p>
+                    </div>
+
+                    <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-emerald-700 group-hover:text-emerald-800">
+                      <span>Selengkapnya</span>
+                      <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       </section>
     </>

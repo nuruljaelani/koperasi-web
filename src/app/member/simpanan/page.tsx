@@ -1,8 +1,15 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import {
+  penarikanMemberSchema,
+  type PenarikanMemberFormValues,
+} from '@/lib/validations/simpanan';
 import { useAuth } from '@/hooks/useAuth';
 import { useSimpananData, SimpananJenis } from '@/hooks/useSimpananData';
+import Modal from '@/components/ui/Modal';
 import {
   Loader2,
   PiggyBank,
@@ -48,10 +55,28 @@ export default function SimpananPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Form states
-  const [jumlahTarik, setJumlahTarik] = useState('');
-  const [keteranganTarik, setKeteranganTarik] = useState('');
+  // Form states using React Hook Form & Zod
   const [errorMsg, setErrorMsg] = useState('');
+
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    reset,
+    setError,
+    trigger,
+    formState: { errors },
+  } = useForm<PenarikanMemberFormValues>({
+    resolver: zodResolver(penarikanMemberSchema) as any,
+    mode: 'onTouched',
+    defaultValues: {
+      jumlahTarik: '',
+      keteranganTarik: '',
+    },
+  });
+
+  const watchJumlahTarik = watch('jumlahTarik');
 
   const anggotaId = user?.anggotaId ?? '';
   const mySimpanan = useMemo(() => getByAnggota(anggotaId), [getByAnggota, anggotaId]);
@@ -83,43 +108,45 @@ export default function SimpananPage() {
     );
   }
 
-  const handleAjukanPenarikan = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onValidPenarikan = async (values: PenarikanMemberFormValues) => {
     setErrorMsg('');
-    
-    const numTarik = parseInt(jumlahTarik.replace(/\D/g, ''), 10);
-    
-    if (!numTarik || numTarik <= 0) {
-      setErrorMsg('Jumlah penarikan tidak valid.');
-      return;
-    }
-    
+    const numTarik = parseInt(values.jumlahTarik.replace(/\D/g, ''), 10);
+
     // Hanya simpanan sukarela yang umum boleh ditarik
     if (numTarik > summary.sukarela) {
-      setErrorMsg(`Maksimal penarikan adalah ${formatRupiah(summary.sukarela)} (Simpanan Sukarela)`);
+      setError('jumlahTarik', {
+        type: 'manual',
+        message: `Maksimal penarikan adalah ${formatRupiah(summary.sukarela)} (Simpanan Sukarela)`,
+      });
       return;
     }
-    
+
     setIsSubmitting(true);
     // Simulasi delay jaringan
     await new Promise((r) => setTimeout(r, 800));
-    
-    addSimpanan(anggotaId, 'Sukarela', numTarik, keteranganTarik || 'Pengajuan Penarikan', 'Penarikan', 'Menunggu');
-    
+
+    addSimpanan(
+      anggotaId,
+      'Sukarela',
+      numTarik,
+      values.keteranganTarik || 'Pengajuan Penarikan',
+      'Penarikan',
+      'Menunggu'
+    );
+
     setIsSubmitting(false);
     setIsModalOpen(false);
-    setJumlahTarik('');
-    setKeteranganTarik('');
+    reset();
   };
 
   const handleJumlahChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawValue = e.target.value.replace(/\D/g, '');
     const numValue = parseInt(rawValue, 10);
-    if (!isNaN(numValue)) {
-      setJumlahTarik(new Intl.NumberFormat('id-ID').format(numValue));
-    } else {
-      setJumlahTarik('');
-    }
+    const formatted = !isNaN(numValue) ? new Intl.NumberFormat('id-ID').format(numValue) : '';
+    setValue('jumlahTarik', formatted, {
+      shouldValidate: true,
+      shouldTouch: true,
+    });
   };
 
   return (
@@ -242,21 +269,14 @@ export default function SimpananPage() {
       </div>
 
       {/* ── Modal Pengajuan ── */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
-          <div className="bg-white rounded-[24px] w-full max-w-md relative z-10 shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-              <h3 className="text-xl font-bold text-slate-800">Ajukan Penarikan</h3>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="p-2 text-slate-400 hover:bg-slate-50 rounded-xl transition-colors"
-              >
-                <XCircle className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <form onSubmit={handleAjukanPenarikan} className="p-6 space-y-5">
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title="Ajukan Penarikan Simpanan"
+        description="Pencairan saldo simpanan sukarela anggota koperasi."
+        size="md"
+      >
+        <form onSubmit={handleSubmit(onValidPenarikan)} className="p-6 space-y-5">
               {errorMsg && (
                 <div className="p-3 bg-rose-50 text-rose-600 text-sm font-medium rounded-xl flex items-start gap-2 border border-rose-100">
                   <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -266,16 +286,26 @@ export default function SimpananPage() {
 
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1.5">
-                  Jumlah Penarikan (Rp)
+                  Jumlah Penarikan (Rp) <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
-                  value={jumlahTarik}
+                  value={watchJumlahTarik || ''}
                   onChange={handleJumlahChange}
+                  onBlur={() => trigger('jumlahTarik')}
                   placeholder="Misal: 500.000"
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-bold focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all outline-none"
-                  required
+                  className={`w-full px-4 py-3 bg-slate-50 border rounded-xl text-slate-800 font-bold outline-none transition-all ${
+                    errors.jumlahTarik
+                      ? 'border-rose-500 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20'
+                      : 'border-slate-200 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
+                  }`}
                 />
+                {errors.jumlahTarik && (
+                  <p className="text-xs text-rose-600 mt-1.5 flex items-center gap-1 font-medium">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    {errors.jumlahTarik.message}
+                  </p>
+                )}
                 <p className="text-xs text-slate-500 mt-2">
                   Saldo Sukarela tersedia: <strong className="text-emerald-600">{formatRupiah(summary.sukarela)}</strong>
                 </p>
@@ -286,13 +316,21 @@ export default function SimpananPage() {
                   Tujuan / Keterangan Penarikan
                 </label>
                 <textarea
-                  value={keteranganTarik}
-                  onChange={(e) => setKeteranganTarik(e.target.value)}
+                  {...register('keteranganTarik')}
                   placeholder="Contoh: Keperluan pendidikan anak"
                   rows={3}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all outline-none resize-none"
-                  required
+                  className={`w-full px-4 py-3 bg-slate-50 border rounded-xl text-slate-800 text-sm outline-none resize-none transition-all ${
+                    errors.keteranganTarik
+                      ? 'border-rose-500 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20'
+                      : 'border-slate-200 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
+                  }`}
                 />
+                {errors.keteranganTarik && (
+                  <p className="text-xs text-rose-600 mt-1.5 flex items-center gap-1 font-medium">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    {errors.keteranganTarik.message}
+                  </p>
+                )}
               </div>
 
               <div className="bg-amber-50 rounded-xl p-4 border border-amber-100 flex gap-3">
@@ -305,8 +343,8 @@ export default function SimpananPage() {
               <div className="pt-2">
                 <button
                   type="submit"
-                  disabled={isSubmitting || !jumlahTarik}
-                  className="w-full py-3.5 bg-emerald-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isSubmitting}
+                  className="w-full py-3.5 bg-emerald-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
                   {isSubmitting ? (
                     <>
@@ -318,10 +356,8 @@ export default function SimpananPage() {
                   )}
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+          </form>
+        </Modal>
     </div>
   );
 }

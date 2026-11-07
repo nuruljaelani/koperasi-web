@@ -1,111 +1,137 @@
-import Image from "next/image";
-import type { Metadata } from "next";
+'use client';
 
-export const metadata: Metadata = {
-  title: "Kontak Kami - UPK Mekarsari",
-  description: "Hubungi kami untuk pertanyaan, masukan, atau informasi lebih lanjut tentang layanan UPK Mekarsari.",
-};
-
-const contactInfo = [
-  {
-    icon: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary-700">
-        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-        <circle cx="12" cy="10" r="3"></circle>
-      </svg>
-    ),
-    title: "Alamat Kantor",
-    details: ["Jl. Raya Mekarsari No. 123", "Desa Mekarsari, Kec. Cileungsi", "Kab. Bogor, Jawa Barat 16820"],
-  },
-  {
-    icon: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary-700">
-        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-      </svg>
-    ),
-    title: "Telepon & WhatsApp",
-    details: ["(021) 823-4567", "+62 812-3456-7890 (WA)"],
-  },
-  {
-    icon: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary-700">
-        <rect x="2" y="4" width="20" height="16" rx="2" ry="2"></rect>
-        <path d="M12 14l9-9"></path>
-        <path d="M2 5l10 9-3-3"></path>
-      </svg>
-    ),
-    title: "Email",
-    details: ["info@upkmekarsari.com", "cs@upkmekarsari.com"],
-  },
-  {
-    icon: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary-700">
-        <circle cx="12" cy="12" r="10"></circle>
-        <polyline points="12 6 12 12 16 14"></polyline>
-      </svg>
-    ),
-    title: "Jam Operasional",
-    details: ["Senin - Jumat: 08:00 - 16:00 WIB", "Sabtu: 08:00 - 13:00 WIB", "Minggu & Libur Nasional: Tutup"],
-  },
-];
+import { useState } from 'react';
+import Image from 'next/image';
+import { usePublicContent } from '@/hooks/useContentData';
+import { MapPin, Phone, Mail, Clock, Send, MessageCircle, CheckCircle2 } from 'lucide-react';
 
 export default function KontakPage() {
+  const { content } = usePublicContent();
+  const { settings } = content;
+
+  const [form, setForm] = useState({
+    name: '',
+    phone: '',
+    subject: 'Informasi Umum',
+    message: '',
+  });
+  const [submitted, setSubmitted] = useState(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.name || !form.message) return;
+
+    // Direct WhatsApp redirect with prefilled message
+    const waNumber = (settings.whatsapp || settings.telepon || '6281234567890').replace(/[^0-9]/g, '');
+    const text = encodeURIComponent(
+      `Halo Admin ${settings.namaOrganisasi || 'Koperasi'},\n\nNama: ${form.name}\nNo. HP: ${form.phone || '-'}\nTopik: ${form.subject}\n\nPesan:\n${form.message}`
+    );
+    window.open(`https://wa.me/${waNumber}?text=${text}`, '_blank');
+    setSubmitted(true);
+    setTimeout(() => setSubmitted(false), 5000);
+  };
+
+  const contactCards = [
+    {
+      icon: <MapPin size={24} className="text-emerald-700" />,
+      title: 'Alamat Kantor',
+      details: [
+        settings.alamat || 'Jl. Raya Mekarsari No. 123, Cileungsi, Bogor, Jawa Barat 16820',
+      ],
+    },
+    {
+      icon: <Phone size={24} className="text-emerald-700" />,
+      title: 'Telepon & WhatsApp',
+      details: [
+        settings.telepon ? `Telp: ${settings.telepon}` : 'Telp: (021) 823-4567',
+        settings.whatsapp ? `WA: ${settings.whatsapp}` : 'WA: +62 812-3456-7890',
+      ],
+    },
+    {
+      icon: <Mail size={24} className="text-emerald-700" />,
+      title: 'Email Resmi',
+      details: [
+        settings.email || 'info@upkmekarsari.com',
+        settings.emailCs || 'cs@upkmekarsari.com',
+      ],
+    },
+    {
+      icon: <Clock size={24} className="text-emerald-700" />,
+      title: 'Jam Layanan',
+      details: [
+        settings.jamOperasional || 'Senin - Jumat: 08:00 - 16:00 WIB',
+        settings.jamSabtu || 'Sabtu: 08:00 - 13:00 WIB',
+      ],
+    },
+  ];
+
   return (
     <>
       {/* Hero */}
-      <section className="page-hero py-10 lg:py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
-          <h1 className="text-3xl lg:text-4xl font-bold text-white mb-3">Kontak Kami</h1>
-          <p className="text-white/70 max-w-xl mx-auto">
-            Kami siap membantu Anda. Jangan ragu untuk menghubungi kami melalui form, telepon, atau kunjungi kantor kami langsung.
+      <section className="py-12 lg:py-16 bg-gradient-to-br from-emerald-800 via-emerald-900 to-slate-900 text-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10 space-y-3">
+          <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-white/10 text-emerald-200 border border-white/20">
+            Layanan Pengaduan & Informasi
+          </span>
+          <h1 className="text-3xl lg:text-5xl font-extrabold tracking-tight">Hubungi Kami</h1>
+          <p className="text-emerald-100/80 max-w-xl mx-auto text-sm sm:text-base">
+            Kami siap melayani kebutuhan informasi simpanan, pembiayaan, dan keanggotaan Anda.
           </p>
         </div>
       </section>
 
       {/* Main Content */}
-      <section className="bg-neutral-50 py-10 lg:py-16">
+      <section className="bg-slate-50/60 py-12 lg:py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16">
-            
             {/* Contact Info & Map */}
             <div className="space-y-8">
               <div>
-                <h2 className="text-2xl lg:text-3xl font-bold text-neutral-900 mb-2">Informasi Kontak</h2>
-                <div className="w-16 h-1 bg-primary-700 rounded-full mb-8"></div>
-                <div className="grid sm:grid-cols-2 gap-6">
-                  {contactInfo.map((info, idx) => (
-                    <div key={idx} className="bg-white rounded-2xl p-6 shadow-sm border border-neutral-100 flex flex-col hover:shadow-md transition-shadow">
-                      <div className="w-12 h-12 bg-primary-50 rounded-xl flex items-center justify-center mb-4 text-primary-700">
-                        {info.icon}
-                      </div>
-                      <h3 className="font-bold text-neutral-900 mb-2">{info.title}</h3>
-                      <div className="text-neutral-600 text-sm space-y-1">
-                        {info.details.map((detail, i) => (
-                          <p key={i}>{detail}</p>
-                        ))}
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mb-2">Informasi Kantor</h2>
+                <div className="w-16 h-1 bg-emerald-600 rounded-full mb-8"></div>
+                <div className="grid sm:grid-cols-2 gap-5">
+                  {contactCards.map((info, idx) => (
+                    <div
+                      key={idx}
+                      className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow"
+                    >
+                      <div>
+                        <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center mb-4">
+                          {info.icon}
+                        </div>
+                        <h3 className="font-extrabold text-slate-800 text-base mb-2">{info.title}</h3>
+                        <div className="space-y-1">
+                          {info.details.map((detail, dIdx) => (
+                            <p key={dIdx} className="text-slate-500 text-xs sm:text-sm leading-relaxed">
+                              {detail}
+                            </p>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Map Placeholder */}
-              <div className="bg-white rounded-2xl p-2 shadow-sm border border-neutral-100 overflow-hidden">
-                <div className="relative h-[250px] w-full rounded-xl overflow-hidden bg-neutral-200">
-                  <Image 
-                    src="/images/kontak-map.png" 
-                    alt="Peta Lokasi Kantor UPK Mekarsari" 
-                    fill 
+              {/* Map Preview */}
+              <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 space-y-3">
+                <div className="relative h-56 rounded-2xl overflow-hidden bg-slate-100">
+                  <Image
+                    src="/images/map-placeholder.png"
+                    alt="Peta Lokasi Kantor"
+                    fill
                     className="object-cover"
                   />
-                  <div className="absolute inset-0 bg-black/10 flex items-center justify-center">
-                    <span className="px-4 py-2 bg-white/90 backdrop-blur-sm shadow text-neutral-800 font-semibold rounded-full text-sm flex items-center gap-2 cursor-pointer hover:bg-primary-700 hover:text-white transition-colors">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                        <circle cx="12" cy="10" r="3"></circle>
-                      </svg>
+                  <div className="absolute inset-0 bg-slate-900/30 backdrop-blur-[2px] flex items-center justify-center">
+                    <a
+                      href={settings.googleMapsUrl || 'https://maps.google.com'}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-5 py-2.5 bg-white text-slate-900 font-bold rounded-2xl text-xs sm:text-sm flex items-center gap-2 shadow-lg hover:bg-emerald-600 hover:text-white transition-all hover:scale-105"
+                    >
+                      <MapPin size={16} />
                       Buka di Google Maps
-                    </span>
+                    </a>
                   </div>
                 </div>
               </div>
@@ -113,73 +139,83 @@ export default function KontakPage() {
 
             {/* Contact Form */}
             <div>
-              <div className="bg-white rounded-3xl p-8 shadow-md border border-neutral-100 h-full">
-                <h2 className="text-2xl font-bold text-neutral-900 mb-2">Tinggalkan Pesan</h2>
-                <p className="text-neutral-500 text-sm mb-8">Isi formulir di bawah ini dan tim kami akan segera membalas pesan Anda.</p>
-                
-                <form className="space-y-6">
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label htmlFor="name" className="text-sm font-medium text-neutral-700">Nama Lengkap</label>
-                      <input 
-                        type="text" 
-                        id="name" 
-                        className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors outline-none"
+              <div className="bg-white rounded-3xl p-8 sm:p-10 shadow-sm border border-slate-100 h-full space-y-6">
+                <div>
+                  <h2 className="text-2xl font-extrabold text-slate-900 mb-1">Tinggalkan Pesan</h2>
+                  <p className="text-slate-500 text-xs sm:text-sm">
+                    Isi formulir di bawah ini dan pesan Anda akan langsung diteruskan ke staf layanan kami via WhatsApp.
+                  </p>
+                </div>
+
+                {submitted && (
+                  <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm flex items-center gap-2 font-semibold animate-in fade-in">
+                    <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
+                    Pesan berhasil diteruskan ke WhatsApp Layanan Koperasi!
+                  </div>
+                )}
+
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-700">Nama Lengkap *</label>
+                      <input
+                        type="text"
+                        value={form.name}
+                        onChange={(e) => setForm({ ...form, name: e.target.value })}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 transition-all font-medium"
                         placeholder="Contoh: Budi Santoso"
                         required
                       />
                     </div>
-                    <div className="space-y-2">
-                      <label htmlFor="phone" className="text-sm font-medium text-neutral-700">No. WhatsApp</label>
-                      <input 
-                        type="tel" 
-                        id="phone" 
-                        className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors outline-none"
-                        placeholder="Contoh: 081234567890"
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-700">No. WhatsApp *</label>
+                      <input
+                        type="tel"
+                        value={form.phone}
+                        onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 transition-all font-medium"
+                        placeholder="081234567890"
                         required
                       />
                     </div>
                   </div>
-                  
-                  <div className="space-y-2">
-                    <label htmlFor="subject" className="text-sm font-medium text-neutral-700">Subjek</label>
-                    <select 
-                      id="subject" 
-                      className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors outline-none appearance-none"
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700">Topik Pertanyaan</label>
+                    <select
+                      value={form.subject}
+                      onChange={(e) => setForm({ ...form, subject: e.target.value })}
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 transition-all font-medium"
                     >
-                      <option value="">Pilih Subjek Pertanyaan</option>
-                      <option value="pembiayaan">Informasi Pembiayaan</option>
-                      <option value="simpanan">Informasi Simpanan</option>
-                      <option value="keanggotaan">Pendaftaran Anggota</option>
-                      <option value="lainnya">Lainnya / Umum</option>
+                      <option value="Informasi Pembiayaan">Informasi Pembiayaan & Pinjaman</option>
+                      <option value="Informasi Simpanan">Informasi Simpanan & Bagi Hasil</option>
+                      <option value="Pendaftaran Anggota">Pendaftaran & Aktivasi Anggota</option>
+                      <option value="Lainnya">Lainnya / Pertanyaan Umum</option>
                     </select>
                   </div>
 
-                  <div className="space-y-2">
-                    <label htmlFor="message" className="text-sm font-medium text-neutral-700">Pesan Anda</label>
-                    <textarea 
-                      id="message" 
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700">Pesan Anda *</label>
+                    <textarea
                       rows={5}
-                      className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors outline-none resize-none"
-                      placeholder="Tulis detail pertanyaan atau masukan Anda di sini..."
+                      value={form.message}
+                      onChange={(e) => setForm({ ...form, message: e.target.value })}
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 transition-all font-medium resize-none"
+                      placeholder="Tuliskan pertanyaan atau kebutuhan konsultasi Anda secara lengkap..."
                       required
-                    ></textarea>
+                    />
                   </div>
 
-                  <button 
+                  <button
                     type="submit"
-                    className="w-full py-4 bg-primary-700 hover:bg-primary-800 text-white font-semibold rounded-xl transition-colors shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+                    className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl transition-all shadow-[0_8px_20px_rgba(16,185,129,0.3)] flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <line x1="22" y1="2" x2="11" y2="13"></line>
-                      <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                    </svg>
-                    Kirim Pesan
+                    <MessageCircle size={18} />
+                    Kirim Pesan ke Layanan CS
                   </button>
                 </form>
               </div>
             </div>
-
           </div>
         </div>
       </section>

@@ -1,51 +1,81 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { use, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 import AnggotaForm from '@/components/admin/AnggotaForm';
-import { useAnggotaData, Anggota } from '@/hooks/useAnggotaData';
+import { useAnggotaData, useAnggotaDetail, Anggota } from '@/hooks/useAnggotaData';
+import { toast } from 'sonner';
 
-// Because it's Next.js app router 15+, page params might be a Promise.
-// But mostly in older Next.js app routers it's synchronous. Let's use it as synchronous directly, but Next.js might complain if it is 15.
-// We will destructure it carefully.
-export default function EditAnggotaPage({ params }: { params: { id: string } }) {
+export default function EditAnggotaPage({ 
+  params 
+}: { 
+  params: Promise<{ id: string }> | { id: string } 
+}) {
   const router = useRouter();
-  const { getAnggota, updateAnggota, isLoaded } = useAnggotaData();
-  const [data, setData] = useState<Anggota | null>(null);
+  const resolvedParams = typeof (params as any)?.then === 'function' ? use(params as Promise<{ id: string }>) : (params as { id: string });
+  const id = resolvedParams.id;
 
-  useEffect(() => {
-    if (isLoaded) {
-      const existing = getAnggota(params.id);
-      if (existing) {
-        setData(existing);
-      } else {
-        router.push('/admin/anggota');
-      }
+  const { updateAnggota, getAnggota } = useAnggotaData();
+  const { data: serverDetail, isLoading: loadingDetail } = useAnggotaDetail(id);
+  const data: Anggota | null = serverDetail || getAnggota(id);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (updatedData: Omit<Anggota, 'id'>) => {
+    try {
+      setIsSubmitting(true);
+      await updateAnggota(id, updatedData);
+      toast.success('Data anggota berhasil diperbarui!');
+      router.push('/bo/anggota');
+    } catch (err: any) {
+      toast.error(err.message || 'Gagal memperbarui data anggota');
+    } finally {
+      setIsSubmitting(false);
     }
-  }, [isLoaded, params.id, getAnggota, router]);
-
-  const handleSubmit = (updatedData: Omit<Anggota, 'id'>) => {
-    updateAnggota(params.id, updatedData);
-    router.push('/admin/anggota');
   };
 
-  if (!isLoaded || !data) return null;
-
   return (
-    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-700 max-w-5xl mx-auto">
-      <div className="flex items-center gap-5">
-        <Link href="/admin/anggota" className="p-3.5 bg-white border border-slate-100 rounded-2xl text-slate-400 hover:text-emerald-600 hover:border-emerald-100 hover:bg-emerald-50 shadow-sm transition-all active:scale-95 group">
-          <ArrowLeft className="w-6 h-6 group-hover:-translate-x-1 transition-transform" />
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
+      <div className="flex items-center gap-4">
+        <Link
+          href="/bo/anggota"
+          className="p-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-2xl transition-all shadow-sm hover:scale-105 active:scale-95 cursor-pointer"
+        >
+          <ArrowLeft className="w-5 h-5" />
         </Link>
         <div>
-          <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 mb-2">Edit Data Anggota</h1>
-          <p className="text-slate-500 font-semibold text-lg">Perbarui informasi untuk <span className="text-emerald-600 font-bold">{data.nama}</span>.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900 mb-1">
+            Ubah Data Anggota
+          </h1>
+          <p className="text-slate-500 font-semibold">
+            Perbarui informasi biodata dan status keanggotaan.
+          </p>
         </div>
       </div>
 
-      <AnggotaForm initialData={data} onSubmit={handleSubmit} />
+      {loadingDetail && !data ? (
+        <div className="p-12 text-center text-slate-400 font-bold animate-pulse flex items-center justify-center gap-2">
+          <Loader2 className="w-5 h-5 animate-spin text-emerald-600" />
+          Memuat data anggota...
+        </div>
+      ) : data ? (
+        <AnggotaForm
+          initialData={data}
+          onSubmit={handleSubmit}
+          isLoading={isSubmitting}
+        />
+      ) : (
+        <div className="bg-white rounded-3xl p-12 text-center border border-slate-100 shadow-sm">
+          <p className="text-slate-500 font-bold mb-4">Anggota tidak ditemukan</p>
+          <Link
+            href="/bo/anggota"
+            className="inline-flex items-center justify-center px-6 py-2.5 bg-emerald-600 text-white font-bold rounded-2xl shadow-sm hover:bg-emerald-700 transition-all text-sm"
+          >
+            Kembali ke Daftar Anggota
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,154 +1,267 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
-import { Plus, Search, Edit3, Trash2 } from 'lucide-react';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { Loader2 } from 'lucide-react';
 import { useJenisPinjamanData, JenisPinjaman } from '@/hooks/useJenisPinjamanData';
+import { type JenisPinjamanFormValues } from '@/lib/validations/jenisPinjaman';
+import { toast } from 'sonner';
+import { confirmDialog } from '@/lib/confirm';
 import DataTable from '@/components/admin/DataTable';
 import TableFilter from '@/components/TableFilter';
 
-export default function JenisPinjamanPage() {
-  const { dataList, isLoaded, deleteData } = useJenisPinjamanData();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [tipeBungaFilter, setTipeBungaFilter] = useState('');
+import { JenisPinjamanHeader } from './components/JenisPinjamanHeader';
+import { JenisPinjamanDrawer } from './components/JenisPinjamanDrawer';
+import { createJenisPinjamanColumns } from './components/JenisPinjamanColumns';
 
-  if (!isLoaded) return <div className="p-10 text-center text-slate-400 font-bold animate-pulse">Memuat Data...</div>;
+function JenisPinjamanContent() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
-  const filteredData = dataList.filter(a => {
-    const matchSearch =
-      a.nama.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      a.kode.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchStatus = statusFilter ? a.status === statusFilter : true;
-    const matchTipe = tipeBungaFilter ? a.tipeBunga === tipeBungaFilter : true;
-    return matchSearch && matchStatus && matchTipe;
+  const urlPage = parseInt(searchParams.get('page') || '1', 10);
+  const page = isNaN(urlPage) || urlPage < 1 ? 1 : urlPage;
+
+  const urlLimit = parseInt(searchParams.get('limit') || '10', 10);
+  const limit = isNaN(urlLimit) || urlLimit < 1 ? 10 : urlLimit;
+
+  const urlSearch = searchParams.get('search') || '';
+  const urlStatus = searchParams.get('status') || '';
+  const urlTipeBunga = searchParams.get('tipeBunga') || '';
+
+  const [searchInput, setSearchInput] = useState(urlSearch);
+
+  useEffect(() => {
+    setSearchInput(urlSearch);
+  }, [urlSearch]);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      if (searchInput !== urlSearch) {
+        updateQuery({ search: searchInput || undefined, page: 1 });
+      }
+    }, 400);
+
+    return () => clearTimeout(handler);
+  }, [searchInput, urlSearch]);
+
+  const updateQuery = (updates: Record<string, string | number | undefined>) => {
+    const params = new URLSearchParams(searchParams.toString());
+    Object.entries(updates).forEach(([key, val]) => {
+      if (val === undefined || val === '') {
+        params.delete(key);
+      } else {
+        params.set(key, String(val));
+      }
+    });
+    router.replace(`${pathname}?${params.toString()}`);
+  };
+
+  const {
+    dataList,
+    pagination,
+    isLoaded,
+    isLoading,
+    addData,
+    updateData,
+    deleteData,
+  } = useJenisPinjamanData({
+    page,
+    limit,
+    search: urlSearch,
+    status: urlStatus,
   });
 
-  const columns = [
-    { header: 'Kode', accessor: 'kode' as keyof JenisPinjaman },
-    { 
-      header: 'Nama Pinjaman', 
-      accessor: (row: JenisPinjaman) => (
-        <div className="font-extrabold text-slate-800">{row.nama}</div>
-      )
-    },
-    { 
-      header: 'Bunga', 
-      accessor: (row: JenisPinjaman) => (
-        <div>
-          <div className="font-bold text-slate-800">{row.sukuBunga}% <span className="text-slate-400 font-medium ml-0.5">/ bln</span></div>
-          <div className="text-xs text-emerald-600 font-bold mt-1">{row.tipeBunga}</div>
-        </div>
-      )
-    },
-    { 
-      header: 'Tenor Maks', 
-      accessor: (row: JenisPinjaman) => <span className="font-bold text-slate-700">{row.tenorMaksimal} Bulan</span>
-    },
-    { 
-      header: 'Biaya Tambahan', 
-      accessor: (row: JenisPinjaman) => (
-        <div className="space-y-1">
-          <div className="text-xs font-bold text-slate-600">Admin: <span className="text-slate-800">{row.biayaAdmin}%</span></div>
-          <div className="text-xs font-bold text-rose-500">Denda: {row.denda}%/hari</div>
-        </div>
-      )
-    },
-    { 
-      header: 'Status', 
-      accessor: (row: JenisPinjaman) => (
-        <span className={`px-4 py-1.5 rounded-xl text-xs font-bold ${row.status === 'Aktif' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-          {row.status}
-        </span>
-      )
-    },
-    {
-      header: 'Aksi',
-      accessor: (row: JenisPinjaman) => (
-        <div className="flex gap-3">
-          <Link href={`/admin/jenis-pinjaman/edit/${row.id}`} className="p-2.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-colors active:scale-95">
-            <Edit3 className="w-5 h-5" />
-          </Link>
-          <button 
-            onClick={() => {
-              if (window.confirm(`Hapus jenis pinjaman ${row.nama} secara permanen?`)) {
-                deleteData(row.id);
-              }
-            }}
-            className="p-2.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors active:scale-95"
-          >
-            <Trash2 className="w-5 h-5" />
-          </button>
-        </div>
-      )
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
+  const [selectedItem, setSelectedItem] = useState<JenisPinjaman | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  if (!isLoaded) {
+    return (
+      <div className="flex flex-col items-center justify-center p-24 space-y-4">
+        <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+        <p className="text-slate-500 font-bold text-sm tracking-wide">
+          Memuat Data Jenis Pinjaman...
+        </p>
+      </div>
+    );
+  }
+
+  const filteredData = dataList.filter((a) => {
+    return urlTipeBunga ? a.tipeBunga === urlTipeBunga : true;
+  });
+
+  const totalProduk = dataList.length;
+  const totalAktif = dataList.filter((d) => d.status === 'Aktif').length;
+  const avgBunga = totalProduk
+    ? (dataList.reduce((acc, curr) => acc + (curr.sukuBunga || 0), 0) / totalProduk).toFixed(1)
+    : '0';
+  const maxTenor = totalProduk ? Math.max(...dataList.map((d) => d.tenorMaksimal || 0)) : 0;
+
+  const handleOpenCreate = () => {
+    setModalMode('create');
+    setSelectedItem(null);
+    setModalOpen(true);
+  };
+
+  const handleOpenEdit = (item: JenisPinjaman) => {
+    setModalMode('edit');
+    setSelectedItem(item);
+    setModalOpen(true);
+  };
+
+  const onValidSubmit = async (values: JenisPinjamanFormValues) => {
+    try {
+      setIsSubmitting(true);
+      if (modalMode === 'create') {
+        await addData(values);
+        toast.success('Produk pinjaman baru berhasil ditambahkan');
+      } else if (modalMode === 'edit' && selectedItem) {
+        await updateData(selectedItem.id, values);
+        toast.success(`Produk '${values.nama}' berhasil diperbarui`);
+      }
+      setModalOpen(false);
+    } catch (err: any) {
+      toast.error(err.message || 'Gagal menyimpan jenis pinjaman');
+    } finally {
+      setIsSubmitting(false);
     }
-  ];
+  };
+
+  const handleConfirmDelete = async (item: JenisPinjaman) => {
+    const isConfirmed = await confirmDialog({
+      title: 'Hapus Jenis Pinjaman?',
+      message: (
+        <span>
+          Apakah Anda yakin ingin menghapus produk pinjaman{' '}
+          <strong className="text-slate-800 font-bold">
+            &apos;{item.nama}&apos; ({item.kode || '—'})
+          </strong>
+          ? Produk yang dihapus tidak akan dapat diajukan kembali oleh anggota.
+        </span>
+      ),
+      confirmText: 'Ya, Hapus Produk',
+      cancelText: 'Batalkan',
+      variant: 'danger',
+    });
+
+    if (isConfirmed) {
+      try {
+        await deleteData(item.id);
+        toast.success(`Produk '${item.nama}' berhasil dihapus`);
+      } catch (err: any) {
+        toast.error(err.message || 'Gagal menghapus jenis pinjaman');
+      }
+    }
+  };
+
+  const columns = createJenisPinjamanColumns({
+    onOpenEdit: handleOpenEdit,
+    onConfirmDelete: handleConfirmDelete,
+  });
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900 mb-3">Jenis Pinjaman</h1>
-          <p className="text-slate-500 font-semibold">Kelola daftar produk pinjaman dan konfigurasi bunganya.</p>
-        </div>
-        <Link 
-          href="/admin/jenis-pinjaman/create"
-          className="inline-flex items-center gap-3 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-2xl font-medium tracking-wide shadow-[0_8px_20px_rgba(16,185,129,0.3)] hover:shadow-[0_12px_25px_rgba(16,185,129,0.4)] transition-all hover:-translate-y-1 active:scale-95 cursor-pointer"
-        >
-          <Plus className="w-6 h-6" />
-          Tambah Jenis
-        </Link>
-      </div>
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-500 max-w-7xl mx-auto">
+      <JenisPinjamanHeader
+        totalProduk={totalProduk}
+        totalAktif={totalAktif}
+        avgBunga={avgBunga}
+        maxTenor={maxTenor}
+        onOpenCreate={handleOpenCreate}
+      />
 
       <TableFilter
-        title="Saring Jenis Pinjaman"
+        title="Filter & Pencarian Produk"
+        defaultOpen={true}
         fields={[
           {
             id: 'search',
             label: 'Pencarian',
             type: 'input',
-            placeholder: 'Nama produk atau kode...',
-            value: searchTerm,
-            onChange: setSearchTerm
+            placeholder: 'Cari nama produk atau kode (JP-01)...',
+            value: searchInput,
+            onChange: setSearchInput,
           },
           {
             id: 'tipeBunga',
-            label: 'Tipe Bunga',
+            label: 'Metode Bunga',
             type: 'select',
-            value: tipeBungaFilter,
-            onChange: setTipeBungaFilter,
+            value: urlTipeBunga,
+            onChange: (val) => updateQuery({ tipeBunga: val || undefined, page: 1 }),
             options: [
-              { label: 'Semua Tipe Bunga', value: '' },
+              { label: 'Semua Metode', value: '' },
               { label: 'Flat', value: 'Flat' },
               { label: 'Menurun', value: 'Menurun' },
-              { label: 'Anuitas', value: 'Anuitas' }
-            ]
+              { label: 'Anuitas', value: 'Anuitas' },
+            ],
           },
           {
             id: 'status',
-            label: 'Status',
+            label: 'Status Produk',
             type: 'select',
-            value: statusFilter,
-            onChange: setStatusFilter,
+            value: urlStatus,
+            onChange: (val) => updateQuery({ status: val || undefined, page: 1 }),
             options: [
               { label: 'Semua Status', value: '' },
               { label: 'Aktif', value: 'Aktif' },
-              { label: 'Tidak Aktif', value: 'Tidak Aktif' }
-            ]
-          }
+              { label: 'Tidak Aktif', value: 'Tidak Aktif' },
+            ],
+          },
         ]}
-        onReset={(searchTerm || statusFilter || tipeBungaFilter) ? () => {
-          setSearchTerm('');
-          setStatusFilter('');
-          setTipeBungaFilter('');
-        } : undefined}
+        onReset={
+          urlSearch || urlStatus || urlTipeBunga || searchInput
+            ? () => {
+                setSearchInput('');
+                updateQuery({
+                  search: undefined,
+                  status: undefined,
+                  tipeBunga: undefined,
+                  page: 1,
+                });
+              }
+            : undefined
+        }
       />
 
-      <DataTable 
-        data={filteredData} 
-        columns={columns} 
-        keyExtractor={(row) => row.id} 
+      <DataTable
+        data={filteredData}
+        columns={columns}
+        keyExtractor={(row) => row.id}
+        pagination={{
+          page: pagination.page,
+          limit: pagination.limit,
+          total: pagination.total,
+          totalPages: pagination.totalPages,
+          isLoading: isLoading || !isLoaded,
+          onPageChange: (newPage) => updateQuery({ page: newPage }),
+          onLimitChange: (newLimit) => updateQuery({ limit: newLimit, page: 1 }),
+        }}
+      />
+
+      <JenisPinjamanDrawer
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        modalMode={modalMode}
+        selectedItem={selectedItem}
+        onSubmit={onValidSubmit}
+        isSubmitting={isSubmitting}
       />
     </div>
+  );
+}
+
+export default function JenisPinjamanPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-10 flex items-center justify-center gap-3 text-slate-400 font-bold">
+          <Loader2 className="w-6 h-6 animate-spin text-emerald-600" />
+          <span>Memuat Data Jenis Pinjaman...</span>
+        </div>
+      }
+    >
+      <JenisPinjamanContent />
+    </Suspense>
   );
 }

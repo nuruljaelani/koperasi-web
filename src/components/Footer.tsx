@@ -4,10 +4,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { useContentStore } from "@/store/useContentStore";
+
 export default function Footer() {
   const pathname = usePathname();
+  const settings = useContentStore((state) => state.settings);
 
-  if (pathname?.startsWith("/admin")) return null;
+  if (pathname?.startsWith("/admin") || pathname?.startsWith("/bo") || pathname?.startsWith("/member")) return null;
 
   return (
     <footer className="bg-neutral-800 text-white">
@@ -17,8 +20,7 @@ export default function Footer() {
           <div className="sm:col-span-2 lg:col-span-1 gap-y-2 flex flex-col">
             <Image src="/logo/Logo-putih.png" alt="Logo" width={250} height={150} />
             <p className="text-neutral-400 text-sm leading-relaxed max-w-xs">
-              Koperasi yang berkomitmen untuk kesejahteraan anggota melalui
-              layanan finansial yang terpercaya dan menguntungkan.
+              {settings.deskripsiSingkat || "Koperasi yang berkomitmen untuk kesejahteraan anggota melalui layanan finansial yang terpercaya dan menguntungkan."}
             </p>
           </div>
 
@@ -49,18 +51,18 @@ export default function Footer() {
             <h3 className="font-semibold text-base mb-4">Tentang Kami</h3>
             <ul className="space-y-2.5">
               <li>
+                <Link href="/tentang-kami" className="text-neutral-400 hover:text-accent-400 text-sm transition-colors">
+                  Tentang Kami
+                </Link>
+              </li>
+              <li>
                 <Link href="/berita" className="text-neutral-400 hover:text-accent-400 text-sm transition-colors">
-                  Berita
+                  Berita & Pengumuman
                 </Link>
               </li>
               <li>
                 <Link href="/kontak" className="text-neutral-400 hover:text-accent-400 text-sm transition-colors">
-                  Kontak
-                </Link>
-              </li>
-              <li>
-                <Link href="#" className="text-neutral-400 hover:text-accent-400 text-sm transition-colors">
-                  FAQ
+                  Hubungi Kami
                 </Link>
               </li>
             </ul>
@@ -76,21 +78,21 @@ export default function Footer() {
                   <circle cx="12" cy="10" r="3" />
                 </svg>
                 <span className="text-neutral-400 text-sm">
-                  Jl. Abcd No. 24 Panongan Lor, Sedong
+                  {settings.alamat || "Jl. Raya Mekarsari No. 123, Cileungsi, Bogor"}
                 </span>
               </li>
               <li className="flex items-center gap-2.5">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-accent-400 shrink-0">
                   <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z" />
                 </svg>
-                <span className="text-neutral-400 text-sm">+628100928111</span>
+                <span className="text-neutral-400 text-sm">{settings.telepon || settings.whatsapp || "(021) 823-4567"}</span>
               </li>
               <li className="flex items-center gap-2.5">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-accent-400 shrink-0">
                   <rect width="20" height="16" x="2" y="4" rx="2" />
                   <path d="m22 7-8.97 5.7a1.94 1.94 0 01-2.06 0L2 7" />
                 </svg>
-                <span className="text-neutral-400 text-sm">info@kkmekarsari.co.id</span>
+                <span className="text-neutral-400 text-sm">{settings.email || "info@upkmekarsari.com"}</span>
               </li>
             </ul>
           </div>

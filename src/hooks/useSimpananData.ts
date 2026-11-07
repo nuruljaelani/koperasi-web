@@ -1,137 +1,283 @@
 'use client';
-import { useState, useEffect } from 'react';
 
-export type SimpananJenis = 'Wajib' | 'Pokok' | 'Sukarela';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { simpananApi } from '@/lib/api';
+import { useAuth } from '@/hooks/useAuth';
+import type { SimpananJenis } from '@/store/useSimpananStore';
+
+export type { SimpananJenis };
 
 export interface Simpanan {
   id: string;
+  kodeTransaksi?: string;
   anggotaId: string;
+  namaAnggota?: string;
+  nomorAnggota?: string;
+  rekeningId?: string;
+  nomorRekening?: string;
   jenis: SimpananJenis;
   jumlah: number;
+  saldo?: number;
+  saldoAwal?: number;
   tanggal: string;
   keterangan: string;
   tipe: 'Setoran' | 'Penarikan';
   status: 'Selesai' | 'Menunggu' | 'Ditolak';
+  metodePembayaran?: 'tunai' | 'transfer';
+  operator?: string;
 }
 
-const initialData: Simpanan[] = [
-  // Ahmad Sudirman (anggotaId: '1')
-  { id: 's1', anggotaId: '1', jenis: 'Pokok', jumlah: 500000, tanggal: '2023-01-10', keterangan: 'Simpanan pokok awal masuk', tipe: 'Setoran', status: 'Selesai' },
-  { id: 's2', anggotaId: '1', jenis: 'Wajib', jumlah: 150000, tanggal: '2024-03-01', keterangan: 'Simpanan wajib Mar 2024', tipe: 'Setoran', status: 'Selesai' },
-  { id: 's3', anggotaId: '1', jenis: 'Wajib', jumlah: 150000, tanggal: '2024-04-01', keterangan: 'Simpanan wajib Apr 2024', tipe: 'Setoran', status: 'Selesai' },
-  { id: 's4', anggotaId: '1', jenis: 'Sukarela', jumlah: 750000, tanggal: '2024-06-15', keterangan: 'Setoran sukarela', tipe: 'Setoran', status: 'Selesai' },
-  { id: 's5', anggotaId: '1', jenis: 'Wajib', jumlah: 150000, tanggal: '2024-07-01', keterangan: 'Simpanan wajib Jul 2024', tipe: 'Setoran', status: 'Selesai' },
-  { id: 's6', anggotaId: '1', jenis: 'Wajib', jumlah: 150000, tanggal: '2024-08-01', keterangan: 'Simpanan wajib Agu 2024', tipe: 'Setoran', status: 'Selesai' },
-  { id: 's7', anggotaId: '1', jenis: 'Sukarela', jumlah: 1000000, tanggal: '2025-01-10', keterangan: 'Tabungan tambahan', tipe: 'Setoran', status: 'Selesai' },
-  { id: 's8', anggotaId: '1', jenis: 'Wajib', jumlah: 150000, tanggal: '2025-03-01', keterangan: 'Simpanan wajib Mar 2025', tipe: 'Setoran', status: 'Selesai' },
-  { id: 's9', anggotaId: '1', jenis: 'Wajib', jumlah: 150000, tanggal: '2026-01-01', keterangan: 'Simpanan wajib Jan 2026', tipe: 'Setoran', status: 'Selesai' },
-  { id: 's10', anggotaId: '1', jenis: 'Wajib', jumlah: 150000, tanggal: '2026-02-01', keterangan: 'Simpanan wajib Feb 2026', tipe: 'Setoran', status: 'Selesai' },
-  // Siti Aminah (anggotaId: '2')
-  { id: 's11', anggotaId: '2', jenis: 'Pokok', jumlah: 500000, tanggal: '2023-06-05', keterangan: 'Simpanan pokok awal masuk', tipe: 'Setoran', status: 'Selesai' },
-  { id: 's12', anggotaId: '2', jenis: 'Wajib', jumlah: 150000, tanggal: '2024-01-01', keterangan: 'Simpanan wajib Jan 2024', tipe: 'Setoran', status: 'Selesai' },
-  { id: 's13', anggotaId: '2', jenis: 'Sukarela', jumlah: 500000, tanggal: '2024-09-20', keterangan: 'Setoran sukarela', tipe: 'Setoran', status: 'Selesai' },
-  { id: 's14', anggotaId: '2', jenis: 'Wajib', jumlah: 150000, tanggal: '2025-02-01', keterangan: 'Simpanan wajib Feb 2025', tipe: 'Setoran', status: 'Selesai' },
-  { id: 's15', anggotaId: '2', jenis: 'Wajib', jumlah: 150000, tanggal: '2026-03-01', keterangan: 'Simpanan wajib Mar 2026', tipe: 'Setoran', status: 'Selesai' },
-];
+export interface SimpananSummary {
+  totalSetor: number;
+  totalTarik: number;
+  totalSaldo: number;
+  totalTransaksi: number;
+}
 
-export function useSimpananData() {
-  const [dataList, setDataList] = useState<Simpanan[]>([]);
-  const [isLoaded, setIsLoaded] = useState(false);
+const mapTipeToJenis = (rawTipe: string = ''): SimpananJenis => {
+  const t = rawTipe.toLowerCase();
+  if (t.includes('pokok')) return 'Pokok';
+  if (t.includes('wajib')) return 'Wajib';
+  return 'Sukarela';
+};
 
-  useEffect(() => {
-    const saved = localStorage.getItem('koperasi_simpanan_mock');
-    if (saved) {
-      // Compatibility code: ensure existing data has tipe and status
-      const parsed = JSON.parse(saved);
-      const migrated = parsed.map((item: any) => ({
-        ...item,
-        tipe: item.tipe || 'Setoran',
-        status: item.status || 'Selesai',
-      }));
-      setDataList(migrated);
-    } else {
-      setDataList(initialData);
-      localStorage.setItem('koperasi_simpanan_mock', JSON.stringify(initialData));
-    }
-    setIsLoaded(true);
-  }, []);
+export interface SimpananPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
 
-  const saveToLocalStorage = (newData: Simpanan[]) => {
-    setDataList(newData);
-    localStorage.setItem('koperasi_simpanan_mock', JSON.stringify(newData));
+export interface UseSimpananParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  jenisMutasi?: string;
+  tipe?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export function useSimpananData(params?: UseSimpananParams) {
+  const { user, isAuthenticated } = useAuth();
+  const queryClient = useQueryClient();
+
+  const isBackOffice =
+    user?.role === 'superadmin' ||
+    user?.role === 'admin' ||
+    user?.role === 'operator' ||
+    user?.role === 'staf';
+
+  // 1. Query Back Office: Seluruh Transaksi Simpanan
+  const { data: boData, isLoading: boLoading } = useQuery({
+    queryKey: [
+      'all-simpanan-transaksi',
+      user?.role,
+      params?.page,
+      params?.limit,
+      params?.search,
+      params?.jenisMutasi,
+      params?.tipe,
+      params?.startDate,
+      params?.endDate,
+    ],
+    queryFn: async () => {
+      if (!isAuthenticated || !isBackOffice) return null;
+      try {
+        const res = await simpananApi.getAllTransaksi({
+          page: params?.page || 1,
+          limit: params?.limit || 10,
+          search: params?.search,
+          jenisMutasi: params?.jenisMutasi,
+          tipe: params?.tipe,
+          startDate: params?.startDate,
+          endDate: params?.endDate,
+        });
+        if (res.status === 'success' && res.data) {
+          const rawItems = res.data.items || [];
+          const items: Simpanan[] = rawItems.map((item: any) => ({
+            id: item.id,
+            kodeTransaksi: item.kodeTransaksi,
+            anggotaId: item.anggota?.id || '',
+            namaAnggota: item.anggota?.namaLengkap || '-',
+            nomorAnggota: item.anggota?.noAnggota || '-',
+            rekeningId: item.rekeningId,
+            nomorRekening: item.nomorRekening,
+            jenis: mapTipeToJenis(item.jenisSimpanan?.tipe || item.jenisSimpanan?.nama),
+            jumlah: Number(item.nominal || 0),
+            saldo: Number(item.saldoAkhir || 0),
+            saldoAwal: Number(item.saldoAwal || 0),
+            tanggal: item.tanggalTransaksi || item.created_at || new Date().toISOString(),
+            keterangan: item.keterangan || '-',
+            tipe: item.jenisMutasi === 'setor' ? 'Setoran' : 'Penarikan',
+            status: 'Selesai',
+            metodePembayaran: item.metodePembayaran || 'tunai',
+            operator: item.operator?.username || 'Kasir',
+          }));
+
+          const pagination: SimpananPagination = res.meta || res.data.pagination || {
+            page: params?.page || 1,
+            limit: params?.limit || 10,
+            total: items.length,
+            totalPages: Math.ceil(items.length / (params?.limit || 10)),
+          };
+
+          return { items, ringkasan: res.data.ringkasan as SimpananSummary, pagination };
+        }
+      } catch (err) {
+        console.warn('Gagal memuat semua transaksi simpanan dari API:', err);
+      }
+      return null;
+    },
+    enabled: isAuthenticated && isBackOffice,
+  });
+
+  // 2. Query Member: Rekening Milik Sendiri
+  const { data: memberData, isLoading: memberLoading } = useQuery({
+    queryKey: ['my-simpanan-rekening', user?.id],
+    queryFn: async () => {
+      if (!isAuthenticated || isBackOffice) return [] as Simpanan[];
+      try {
+        const res = await simpananApi.getMyRekening();
+        if (res.status === 'success' && Array.isArray(res.data)) {
+          return res.data.map((item: any) => ({
+            id: item.id,
+            rekeningId: item.id,
+            nomorRekening: item.nomor_rekening,
+            anggotaId: user?.anggotaId || user?.id || '',
+            jenis: mapTipeToJenis(item.jenis?.tipe || item.jenis?.nama),
+            jumlah: Number(item.saldo || 0),
+            saldo: Number(item.saldo || 0),
+            tanggal: item.created_at || new Date().toISOString(),
+            keterangan: `Rekening ${item.nomor_rekening || item.id}`,
+            tipe: 'Setoran' as const,
+            status: item.status === 'aktif' ? 'Selesai' : 'Menunggu',
+          })) as Simpanan[];
+        }
+      } catch (err) {
+        console.warn('Gagal memuat rekening simpanan pribadi dari API:', err);
+      }
+      return [] as Simpanan[];
+    },
+    enabled: isAuthenticated && !isBackOffice,
+  });
+
+  // 3. Mutasi Transaksi Simpanan
+  const transaksiMutation = useMutation({
+    mutationFn: async (payload: {
+      rekeningId?: string;
+      memberId?: string;
+      jenisSimpananId?: string;
+      jenisMutasi: 'setor' | 'tarik';
+      nominal: number;
+      keterangan?: string;
+      metodePembayaran?: 'tunai' | 'transfer';
+      buktiPembayaran?: string;
+    }) => {
+      const res = await simpananApi.transaksi(payload);
+      if (res.status !== 'success') {
+        throw new Error(res.message || 'Transaksi simpanan gagal');
+      }
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['all-simpanan-transaksi'] });
+      queryClient.invalidateQueries({ queryKey: ['my-simpanan-rekening'] });
+      queryClient.invalidateQueries({ queryKey: ['member-cashier-rekening'] });
+      queryClient.invalidateQueries({ queryKey: ['bo-dashboard'] });
+    },
+  });
+
+  const dataList: Simpanan[] = isBackOffice
+    ? boData?.items || []
+    : memberData || [];
+
+  const ringkasan: SimpananSummary = boData?.ringkasan || {
+    totalSetor: 0,
+    totalTarik: 0,
+    totalSaldo: 0,
+    totalTransaksi: 0,
   };
 
+  const isLoaded = isBackOffice ? !boLoading : !memberLoading;
+
   const getByAnggota = (anggotaId: string) =>
-    dataList.filter((s) => s.anggotaId === anggotaId);
+    dataList.filter((s) => !anggotaId || s.anggotaId === anggotaId);
 
   const getTotalByAnggota = (anggotaId: string) =>
     dataList
-      .filter((s) => s.anggotaId === anggotaId && s.status === 'Selesai')
-      .reduce((sum, s) => {
-        if (s.tipe === 'Penarikan') {
-          return sum - s.jumlah;
-        }
-        return sum + s.jumlah;
-      }, 0);
+      .filter((s) => (!anggotaId || s.anggotaId === anggotaId) && s.status === 'Selesai')
+      .reduce((sum, s) => (s.tipe === 'Penarikan' ? sum - s.jumlah : sum + s.jumlah), 0);
 
   const getTotalSukarelaByAnggota = (anggotaId: string) =>
     dataList
-      .filter((s) => s.anggotaId === anggotaId && s.jenis === 'Sukarela' && s.status === 'Selesai')
-      .reduce((sum, s) => {
-        if (s.tipe === 'Penarikan') return sum - s.jumlah;
-        return sum + s.jumlah;
-      }, 0);
-
-  const addSimpanan = (
-    anggotaId: string,
-    jenis: SimpananJenis,
-    jumlah: number,
-    keterangan: string,
-    tipe: 'Setoran' | 'Penarikan' = 'Setoran',
-    status: 'Selesai' | 'Menunggu' | 'Ditolak' = 'Selesai'
-  ) => {
-    const newSimpanan: Simpanan = {
-      id: `s${Date.now()}`,
-      anggotaId,
-      jenis,
-      jumlah,
-      tanggal: new Date().toISOString(),
-      keterangan,
-      tipe,
-      status,
-    };
-    saveToLocalStorage([...dataList, newSimpanan]);
-    return newSimpanan;
-  };
-
-  const addBulkSimpanan = (entries: Omit<Simpanan, 'id'>[]) => {
-    const newItems: Simpanan[] = entries.map((e, i) => ({
-      ...e,
-      id: `s${Date.now()}_${i}`,
-    }));
-    saveToLocalStorage([...dataList, ...newItems]);
-    return newItems;
-  };
-
-  const updateSimpananStatus = (id: string, status: 'Selesai' | 'Menunggu' | 'Ditolak') => {
-    const updated = dataList.map(s => s.id === id ? { ...s, status } : s);
-    saveToLocalStorage(updated);
-  };
+      .filter((s) => (!anggotaId || s.anggotaId === anggotaId) && s.jenis === 'Sukarela' && s.status === 'Selesai')
+      .reduce((sum, s) => (s.tipe === 'Penarikan' ? sum - s.jumlah : sum + s.jumlah), 0);
 
   const getTotalByJenis = (jenis: SimpananJenis) =>
     dataList
-      .filter(s => s.jenis === jenis && s.status === 'Selesai')
+      .filter((s) => s.jenis === jenis && s.status === 'Selesai')
       .reduce((sum, s) => (s.tipe === 'Penarikan' ? sum - s.jumlah : sum + s.jumlah), 0);
+
+  const addSimpanan = async (
+    anggotaId: string,
+    _jenis: SimpananJenis,
+    jumlah: number,
+    keterangan: string,
+    tipe: 'Setoran' | 'Penarikan' = 'Setoran',
+    _status: 'Selesai' | 'Menunggu' | 'Ditolak' = 'Selesai',
+    options?: {
+      rekeningId?: string;
+      jenisSimpananId?: string;
+      metodePembayaran?: 'tunai' | 'transfer';
+      buktiPembayaran?: string;
+    }
+  ) => {
+    return await transaksiMutation.mutateAsync({
+      rekeningId: options?.rekeningId,
+      memberId: anggotaId,
+      jenisSimpananId: options?.jenisSimpananId,
+      jenisMutasi: tipe === 'Setoran' ? 'setor' : 'tarik',
+      nominal: jumlah,
+      keterangan,
+      metodePembayaran: options?.metodePembayaran || 'tunai',
+      buktiPembayaran: options?.buktiPembayaran,
+    });
+  };
 
   return {
     dataList,
+    ringkasan,
+    pagination: boData?.pagination,
     isLoaded,
+    isLoading: isBackOffice ? boLoading : memberLoading,
     getByAnggota,
     getTotalByAnggota,
     getTotalSukarelaByAnggota,
     addSimpanan,
-    addBulkSimpanan,
-    updateSimpananStatus,
+    addBulkSimpanan: (_entries: Omit<Simpanan, 'id'>[]) => [],
+    updateSimpananStatus: (_id: string, _status: any) => {},
     getTotalByJenis,
+    isSubmitting: transaksiMutation.isPending,
   };
+}
+
+// Hook khusus Kasir untuk memuat rekening & saldo anggota tertentu
+export function useMemberCashierRekening(memberId: string | null) {
+  return useQuery({
+    queryKey: ['member-cashier-rekening', memberId],
+    queryFn: async () => {
+      if (!memberId) return null;
+      try {
+        const res = await simpananApi.getMemberRekening(memberId);
+        if (res.status === 'success' && res.data) {
+          return res.data;
+        }
+      } catch (err) {
+        console.warn('Gagal memuat rekening kasir anggota:', err);
+      }
+      return null;
+    },
+    enabled: Boolean(memberId),
+  });
 }

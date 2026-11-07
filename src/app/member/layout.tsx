@@ -16,8 +16,10 @@ import {
   Menu,
   X,
   Loader2,
-  User
+  User,
 } from 'lucide-react';
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import { useAuthStore } from '@/store/useAuthStore';
 
 const memberNav = [
   { name: 'Dashboard', href: '/member/dashboard', icon: LayoutDashboard },
@@ -28,36 +30,20 @@ const memberNav = [
 ];
 
 export default function MemberLayout({ children }: { children: React.ReactNode }) {
-  const { user, isLoaded, isAuthenticated, role, logout } = useAuth();
+  const { user, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  useEffect(() => {
-    if (!isLoaded) return;
-    if (!isAuthenticated) {
-      router.replace('/login');
-      return;
-    }
-    if (role === 'admin') {
-      router.replace('/bo/dashboard');
-    }
-  }, [isLoaded, isAuthenticated, role, router]);
+  const profileImages = useAuthStore((s) => s.profileImages);
+  const avatarImg = user?.id ? profileImages[user.id] : null;
 
   const handleLogout = () => {
     logout();
     router.push('/login');
   };
 
-  if (!isLoaded || !isAuthenticated || role === 'admin') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
-      </div>
-    );
-  }
-
-  const initials = user!.nama
+  const initials = (user?.nama || 'Anggota')
     .split(' ')
     .map((n) => n[0])
     .slice(0, 2)
@@ -65,7 +51,8 @@ export default function MemberLayout({ children }: { children: React.ReactNode }
     .toUpperCase();
 
   return (
-    <div className="min-h-screen bg-[#F0FBF4] flex font-sans">
+    <ProtectedRoute allowedRoles={['anggota', 'member']}>
+      <div className="min-h-screen bg-[#F0FBF4] flex font-sans">
       {/* Mobile backdrop */}
       {sidebarOpen && (
         <div
@@ -106,18 +93,22 @@ export default function MemberLayout({ children }: { children: React.ReactNode }
         {/* Member identity card */}
         <div className="mx-4 mt-4 p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shrink-0">
-              {initials}
+            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shrink-0 overflow-hidden">
+              {avatarImg ? (
+                <img src={avatarImg} alt={user?.nama} className="w-full h-full object-cover" />
+              ) : (
+                initials
+              )}
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-bold text-slate-800 truncate">{user!.nama}</p>
-              <p className="text-xs text-emerald-700 font-semibold">{user!.username}</p>
+              <p className="text-sm font-bold text-slate-800 truncate">{user?.nama || 'Anggota'}</p>
+              <p className="text-xs text-emerald-700 font-semibold">{user?.username || ''}</p>
             </div>
           </div>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto sidebar-scroll">
           {memberNav.map((item) => {
             const isActive =
               pathname === item.href || pathname?.startsWith(`${item.href}/`);
@@ -172,11 +163,15 @@ export default function MemberLayout({ children }: { children: React.ReactNode }
 
           <div className="flex items-center gap-3 ml-auto">
             <div className="text-right hidden sm:block">
-              <p className="text-sm font-semibold text-slate-800">{user!.nama}</p>
-              <p className="text-xs text-slate-400">{user!.username}</p>
+              <p className="text-sm font-semibold text-slate-800">{user?.nama || 'Anggota'}</p>
+              <p className="text-xs text-slate-400">{user?.username || ''}</p>
             </div>
-            <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-sm">
-              {initials}
+            <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-sm overflow-hidden">
+              {avatarImg ? (
+                <img src={avatarImg} alt={user?.nama} className="w-full h-full object-cover" />
+              ) : (
+                initials
+              )}
             </div>
           </div>
         </header>
@@ -192,5 +187,6 @@ export default function MemberLayout({ children }: { children: React.ReactNode }
         </footer>
       </div>
     </div>
+    </ProtectedRoute>
   );
 }

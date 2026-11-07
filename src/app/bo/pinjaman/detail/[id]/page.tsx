@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, CheckCircle2, Info } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Info, FileText, ExternalLink } from 'lucide-react';
 import { usePinjamanData, Pinjaman } from '@/hooks/usePinjamanData';
 import { useAnggotaData } from '@/hooks/useAnggotaData';
 import { useJenisPinjamanData } from '@/hooks/useJenisPinjamanData';
@@ -23,7 +23,7 @@ export default function DetailPinjamanPage({ params }: { params: Promise<{ id: s
       if (existing) {
         setData(existing);
       } else {
-        router.push('/admin/pinjaman');
+        router.push('/bo/pinjaman');
       }
     }
   }, [pinjamanLoaded, anggotaLoaded, jenisLoaded, id, dataList, router]);
@@ -49,7 +49,7 @@ export default function DetailPinjamanPage({ params }: { params: Promise<{ id: s
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700 max-w-4xl mx-auto">
       <div className="flex items-center gap-5">
-        <Link href="/admin/pinjaman" className="p-3.5 bg-white border border-slate-100 rounded-2xl text-slate-400 hover:text-emerald-600 hover:border-emerald-100 hover:bg-emerald-50 shadow-sm transition-all active:scale-95 group">
+        <Link href="/bo/pinjaman" className="p-3.5 bg-white border border-slate-100 rounded-2xl text-slate-400 hover:text-emerald-600 hover:border-emerald-100 hover:bg-emerald-50 shadow-sm transition-all active:scale-95 group">
           <ArrowLeft className="w-6 h-6 group-hover:-translate-x-1 transition-transform" />
         </Link>
         <div>
@@ -111,6 +111,47 @@ export default function DetailPinjamanPage({ params }: { params: Promise<{ id: s
                 <div className="font-semibold text-slate-700">{new Date(data.tanggalPengajuan).toLocaleDateString('id-ID', { dateStyle: 'long' })}</div>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Dokumen Persyaratan Uploaded */}
+        <div>
+          <div className="text-sm font-bold text-slate-500 mb-2.5 flex items-center gap-2">
+            <FileText className="w-4 h-4 text-emerald-600" /> Dokumen Persyaratan Pengajuan
+          </div>
+          <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100">
+            {Array.isArray(data.dokumenPersyaratan) && data.dokumenPersyaratan.length > 0 ? (
+              <div className="flex flex-wrap gap-2.5">
+                {data.dokumenPersyaratan.map((d: any, idx: number) => {
+                  const nama = typeof d === 'string' ? d : d?.jenis || d?.namaFile || `Dokumen ${idx + 1}`;
+                  const url = typeof d === 'object' && d?.url ? d.url : (typeof d === 'string' && d.startsWith('http') ? d : null);
+                  const isHttp = url && url.startsWith('http');
+                  return isHttp ? (
+                    <a
+                      key={idx}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-3.5 py-2 bg-white hover:bg-emerald-50 text-emerald-700 border border-slate-200 hover:border-emerald-200 rounded-xl text-xs font-semibold transition-all shadow-sm group"
+                    >
+                      <FileText className="w-4 h-4 text-emerald-600" />
+                      <span>{nama}</span>
+                      <ExternalLink className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-600" />
+                    </a>
+                  ) : (
+                    <span
+                      key={idx}
+                      className="inline-flex items-center gap-2 px-3.5 py-2 bg-white text-slate-700 border border-slate-200 rounded-xl text-xs font-medium"
+                    >
+                      <FileText className="w-4 h-4 text-slate-400" />
+                      <span>{nama}</span>
+                    </span>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-400 italic">Tidak ada lampiran dokumen digital untuk pengajuan ini.</p>
+            )}
           </div>
         </div>
 
